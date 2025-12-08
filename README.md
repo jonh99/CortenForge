@@ -1,6 +1,6 @@
 # Mission Impossibowel
 
-![demo](media/colon_probe_capsule.gif)
+![demo](media/ball_jointed_probe.gif)
 
 Simple Bevy + Rapier sandbox with a capsule “probe” navigating a snug tunnel. Arrow keys (Up/Down) or `I/K` apply thrust; right mouse + WASD/space/shift moves the fly camera. A small gravity keeps the probe settled.
 
@@ -13,7 +13,7 @@ Simple Bevy + Rapier sandbox with a capsule “probe” navigating a snug tunnel
 
 ## Running
 ```bash
-cargo run
+cargo run --release
 ```
 
 ## Notes
