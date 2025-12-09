@@ -11,6 +11,9 @@ pub struct CapsuleProbe;
 pub struct ProbeTip;
 
 #[derive(Component)]
+pub struct ProbeHead;
+
+#[derive(Component)]
 pub struct ProbeSegment;
 
 #[derive(Component)]
@@ -76,7 +79,7 @@ pub fn spawn_probe(
         ));
 
         if i == 0 {
-            entity.insert(ProbeTip);
+            entity.insert((ProbeTip, ProbeHead));
         }
         if i == segment_count - 1 {
             entity.insert(CapsuleProbe);
