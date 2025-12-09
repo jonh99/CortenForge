@@ -31,7 +31,7 @@ impl Default for BalloonControl {
 }
 
 /// Simple input for a virtual balloon separate from the probe tip.
-/// B toggles inflate/deflate; when deflated, V moves it forward and C moves it back (along probe forward).
+/// B toggles inflate/deflate; V moves it forward and C moves it back along the tunnel (global +Z).
 pub fn balloon_control_input(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -41,11 +41,11 @@ pub fn balloon_control_input(
     let Ok(tip_tf) = tip_q.single() else {
         return;
     };
-    let tip = tip_tf.compute_transform();
-    let forward = (tip.rotation * Vec3::Z).normalize_or_zero();
+    let tip_z = tip_tf.translation().z;
+    let forward = Vec3::Z;
 
     if !balloon.initialized {
-        balloon.position = tip.translation + forward * 2.0;
+        balloon.position = Vec3::new(0.0, 0.0, tip_z + 2.0);
         balloon.initialized = true;
     }
 
@@ -61,12 +61,9 @@ pub fn balloon_control_input(
         balloon.position -= forward * step;
     }
 
-    if forward.length_squared() > 0.0 {
-        let dist = (balloon.position - tip.translation).dot(forward);
-        if dist > balloon.max_offset {
-            balloon.position = tip.translation + forward * balloon.max_offset;
-        }
-    }
+    let dist = balloon.position.z - tip_z;
+    let clamped = dist.clamp(0.0, balloon.max_offset);
+    balloon.position = Vec3::new(0.0, 0.0, tip_z + clamped);
 }
 
 #[derive(Component)]
@@ -132,22 +129,13 @@ pub fn spawn_balloon_body(mut commands: Commands) {
 pub fn balloon_body_update(
     balloon: Res<BalloonControl>,
     mut body_q: Query<(&mut Transform, &mut Collider), With<BalloonBody>>,
-    tip_q: Query<&GlobalTransform, With<ProbeHead>>,
 ) {
     let Ok((mut tf, mut collider)) = body_q.single_mut() else {
         return;
     };
-    let Ok(tip_tf) = tip_q.single() else {
-        return;
-    };
-    let tip = tip_tf.compute_transform();
-    let forward = (tip.rotation * Vec3::Z).normalize_or_zero();
-    if forward.length_squared() == 0.0 {
-        return;
-    }
 
     tf.translation = balloon.position;
-    tf.rotation = Quat::from_rotation_arc(Vec3::Z, forward);
+    tf.rotation = Quat::IDENTITY;
 
     let radius = if balloon.inflated {
         balloon.inflated_radius
