@@ -7,7 +7,8 @@ use crate::controls::ControlParams;
 use crate::balloon_control::BalloonControl;
 
 const MIN_STRETCH: f32 = 1.0;
-const MAX_STRETCH: f32 = 6.0;
+// Allow stretching up to +72% of the deflated length.
+const MAX_STRETCH: f32 = 1.72;
 const STRETCH_RATE: f32 = 0.6; // slower extension
 const RETRACT_RATE: f32 = 0.9;
 
