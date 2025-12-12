@@ -5,6 +5,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use crate::controls::ControlParams;
 use crate::balloon_control::BalloonControl;
+use crate::tunnel::{advance_centerline, tunnel_centerline, tunnel_tangent_rotation};
 
 const MIN_STRETCH: f32 = 1.0;
 // Allow stretching up to +68% of the deflated length.
@@ -30,6 +31,11 @@ pub struct ProbeHead;
 pub struct ProbeSegment;
 
 #[derive(Component)]
+pub struct ProbeParam {
+    pub tail_z: f32,
+}
+
+#[derive(Component)]
 pub struct SegmentSpring {
     pub base_rest: f32,
 }
@@ -50,7 +56,9 @@ pub struct ProbeRing {
 }
 
 #[derive(Component)]
-pub struct ProbeVisual;
+pub struct ProbeVisualSegment {
+    pub index: usize,
+}
 
 fn ring_shell_collider(radius: f32, half_height: f32) -> Collider {
     let wall_thickness = 0.08;
@@ -85,6 +93,7 @@ pub fn spawn_probe(
     let ring_half_height = ring_spacing * 0.45;
     // Keep similar placement to previous chain: tail back near -16, tip ahead in the straight.
     let tail_z = -10.0;
+    let (tail_center, tail_tangent) = tunnel_centerline(tail_z);
 
     let visual_mesh = meshes.add(Mesh::from(Cylinder {
         radius: base_radius * 0.9,
@@ -106,6 +115,7 @@ pub fn spawn_probe(
             ring_count,
         },
         CapsuleProbe,
+        ProbeParam { tail_z },
         RigidBody::KinematicPositionBased,
         Collider::ball(base_radius),
         Friction {
@@ -114,13 +124,18 @@ pub fn spawn_probe(
             ..default()
         },
         CollisionGroups::new(Group::GROUP_1, Group::ALL),
-        Transform::from_translation(Vec3::new(0.0, 0.0, tail_z)),
+        Transform {
+            translation: tail_center,
+            rotation: tunnel_tangent_rotation(tail_tangent),
+            ..default()
+        },
         GlobalTransform::default(),
         Visibility::default(),
     ));
 
     root.with_children(|child| {
         // Head marker and collider.
+        let (head_center, head_tangent, _) = advance_centerline(tail_z, base_length);
         child.spawn((
             ProbeHead,
             ProbeTip,
@@ -131,13 +146,17 @@ pub fn spawn_probe(
                 ..default()
             },
             CollisionGroups::new(Group::GROUP_1, Group::ALL),
-            Transform::from_translation(Vec3::new(0.0, 0.0, base_length)),
+            Transform {
+                translation: head_center - tail_center,
+                rotation: tunnel_tangent_rotation(head_tangent),
+                ..default()
+            },
             GlobalTransform::default(),
         ));
 
         // Body rings for collision hull.
         for i in 0..=ring_count {
-            let z = i as f32 * ring_spacing;
+            let (ring_center, ring_tangent, _) = advance_centerline(tail_z, i as f32 * ring_spacing);
             child.spawn((
                 ProbeRing { index: i },
                 ring_shell_collider(base_radius, ring_half_height),
@@ -147,24 +166,33 @@ pub fn spawn_probe(
                     ..default()
                 },
                 CollisionGroups::new(Group::GROUP_1, Group::ALL),
-                Transform::from_translation(Vec3::new(0.0, 0.0, z)),
+                Transform {
+                    translation: ring_center - tail_center,
+                    rotation: tunnel_tangent_rotation(ring_tangent),
+                    ..default()
+                },
                 GlobalTransform::default(),
             ));
         }
 
-        // Visual skin.
-        child.spawn((
-            ProbeVisual,
-            Mesh3d(visual_mesh),
-            MeshMaterial3d(material_handle),
-            Transform {
-                translation: Vec3::new(0.0, 0.0, base_length * 0.5),
-                rotation: Quat::from_rotation_x(FRAC_PI_2),
-                scale: Vec3::ONE,
-            },
-            GlobalTransform::default(),
-            Visibility::default(),
-        ));
+        // Visual skin segments along the curve.
+        for i in 0..ring_count {
+            let arc = (i as f32 + 0.5) * ring_spacing;
+            let (seg_center, seg_tangent, _) = advance_centerline(tail_z, arc);
+            let length_scale = ring_spacing / base_length;
+            child.spawn((
+                ProbeVisualSegment { index: i },
+                Mesh3d(visual_mesh.clone()),
+                MeshMaterial3d(material_handle.clone()),
+                Transform {
+                    translation: seg_center - tail_center,
+                    rotation: tunnel_tangent_rotation(seg_tangent) * Quat::from_rotation_x(FRAC_PI_2),
+                    scale: Vec3::new(1.0, length_scale, 1.0),
+                },
+                GlobalTransform::default(),
+                Visibility::default(),
+            ));
+        }
     });
 }
 
@@ -174,16 +202,16 @@ pub fn peristaltic_drive(
     control: Res<ControlParams>,
     balloon: Res<BalloonControl>,
     mut stretch: ResMut<StretchState>,
-    mut tail_body: Query<(&ProbeBody, Entity, &mut RigidBody), With<CapsuleProbe>>,
+    mut tail_body: Query<(&ProbeBody, Entity, &mut RigidBody, &mut ProbeParam), With<CapsuleProbe>>,
     mut transforms: ParamSet<(
-        Query<&mut Transform, (With<ProbeHead>, Without<ProbeVisual>)>,
-        Query<&mut Transform, With<ProbeVisual>>,
+        Query<&mut Transform, (With<ProbeHead>, Without<ProbeVisualSegment>)>,
+        Query<(&ProbeVisualSegment, &mut Transform)>,
         Query<(&ProbeRing, &mut Transform, &mut Collider, &mut Friction)>,
         Query<&mut Friction, With<CapsuleProbe>>,
         Query<&mut Transform, With<CapsuleProbe>>,
     )>,
 ) {
-    let Ok((body, tail_entity, mut body_rb)) = tail_body.single_mut() else {
+    let Ok((body, tail_entity, mut body_rb, mut params)) = tail_body.single_mut() else {
         return;
     };
 
@@ -194,8 +222,8 @@ pub fn peristaltic_drive(
 
     // Capture current head world position before we change length so head-anchored deflate pulls the tail forward.
     let current_length = body.base_length * stretch.factor.max(MIN_STRETCH);
-    let head_anchor_z = if balloon.head_inflated {
-        Some(body_tf.translation.z + current_length)
+    let head_anchor_pos = if balloon.head_inflated {
+        Some(advance_centerline(params.tail_z, current_length).0)
     } else {
         None
     };
@@ -204,10 +232,13 @@ pub fn peristaltic_drive(
     // - Extend: tail balloon on, head balloon off, hold Up/I.
     // - Retract/deflate: Down/K always shrinks length, regardless of anchor state.
     // - Head balloon on locks length from auto change, but manual deflate still works.
-    let extend_command = balloon.tail_inflated
+    let interlocked = balloon.tail_inflated && balloon.head_inflated;
+    let extend_command = !interlocked
+        && balloon.tail_inflated
         && !balloon.head_inflated
         && (keys.pressed(KeyCode::ArrowUp) || keys.pressed(KeyCode::KeyI));
-    let retract_command = keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyK);
+    let retract_command = !interlocked
+        && (keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyK));
 
     let dt = time.delta_secs();
     if extend_command {
@@ -225,23 +256,48 @@ pub fn peristaltic_drive(
 
     let length = body.base_length * stretch.factor.max(MIN_STRETCH);
 
-    // If the head is anchored, slide the tail forward/back to keep head world position fixed.
-    if let Some(anchor_z) = head_anchor_z {
-        body_tf.translation.z = anchor_z - length;
+    // If the head is anchored, slide the tail forward/back along the curve to keep head world position fixed.
+    if let Some(anchor_pos) = head_anchor_pos {
+        let max_z = crate::tunnel::TUNNEL_START_Z + crate::tunnel::TUNNEL_LENGTH;
+        let mut low = (anchor_pos.z - length - 5.0)
+            .clamp(crate::tunnel::TUNNEL_START_Z, max_z);
+        let mut high = (anchor_pos.z + 5.0).clamp(crate::tunnel::TUNNEL_START_Z, max_z);
+        let head_at = |tail_z: f32| advance_centerline(tail_z, length).0;
+        for _ in 0..18 {
+            let m1 = low + (high - low) / 3.0;
+            let m2 = high - (high - low) / 3.0;
+            let d1 = head_at(m1).distance_squared(anchor_pos);
+            let d2 = head_at(m2).distance_squared(anchor_pos);
+            if d1 < d2 {
+                high = m2;
+            } else {
+                low = m1;
+            }
+        }
+        params.tail_z = (low + high) * 0.5;
     }
+
+    let (tail_center, tail_tangent) = tunnel_centerline(params.tail_z);
+    body_tf.translation = tail_center;
+    body_tf.rotation = tunnel_tangent_rotation(tail_tangent);
 
     let spacing = length / body.ring_count as f32;
     let ring_half_height = spacing * 0.45;
 
     // Update head transform to new tip position.
     if let Ok(mut head_tf) = transforms.p0().single_mut() {
-        head_tf.translation = Vec3::new(0.0, 0.0, length);
+        let (head_center, head_tangent, _) = advance_centerline(params.tail_z, length);
+        head_tf.translation = head_center - tail_center;
+        head_tf.rotation = tunnel_tangent_rotation(head_tangent);
     }
 
-    // Update visual skin.
-    if let Ok(mut vis_tf) = transforms.p1().single_mut() {
-        vis_tf.translation = Vec3::new(0.0, 0.0, length * 0.5);
-        vis_tf.scale = Vec3::new(1.0, stretch.factor, 1.0);
+    // Update visual skin segments along the curved centerline.
+    for (seg, mut vis_tf) in transforms.p1().iter_mut() {
+        let arc = (seg.index as f32 + 0.5) * spacing;
+        let (center, tangent, _) = advance_centerline(params.tail_z, arc);
+        vis_tf.translation = center - tail_center;
+        vis_tf.rotation = tunnel_tangent_rotation(tangent) * Quat::from_rotation_x(FRAC_PI_2);
+        vis_tf.scale = Vec3::new(1.0, spacing / body.base_length, 1.0);
     }
 
     // Tail friction spikes when anchored; head friction spikes when head balloon is on.
@@ -252,7 +308,10 @@ pub fn peristaltic_drive(
 
     // Update rings to cover the stretched length and adjust friction gradient.
     for (ring, mut tf, mut collider, mut fric) in transforms.p2().iter_mut() {
-        tf.translation = Vec3::new(0.0, 0.0, ring.index as f32 * spacing);
+        let arc = ring.index as f32 * spacing;
+        let (ring_center, ring_tangent, _) = advance_centerline(params.tail_z, arc);
+        tf.translation = ring_center - tail_center;
+        tf.rotation = tunnel_tangent_rotation(ring_tangent);
         *collider = ring_shell_collider(body.base_radius, ring_half_height);
 
         let t = ring.index as f32 / body.ring_count as f32;
