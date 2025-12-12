@@ -1,17 +1,19 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::probe::ProbeHead;
+use crate::probe::{CapsuleProbe, ProbeHead};
 
 #[derive(Resource)]
 pub struct BalloonControl {
     pub max_offset: f32,
     pub move_speed: f32,
-    pub inflated: bool,
+    pub head_inflated: bool,
+    pub tail_inflated: bool,
     pub deflated_radius: f32,
     pub inflated_radius: f32,
     pub half_length: f32,
     pub position: Vec3,
+    pub rear_position: Vec3,
     pub initialized: bool,
 }
 
@@ -20,55 +22,57 @@ impl Default for BalloonControl {
         Self {
             max_offset: 8.0,
             move_speed: 3.0,
-            inflated: false,
+            head_inflated: false,
+            tail_inflated: false,
             deflated_radius: 0.3,
             inflated_radius: 1.6,
             half_length: 0.8,
             position: Vec3::ZERO,
+            rear_position: Vec3::ZERO,
             initialized: false,
         }
     }
 }
 
-/// Simple input for a virtual balloon separate from the probe tip.
-/// B toggles inflate/deflate; V moves it forward and C moves it back along the tunnel (global +Z).
+/// Simple input for virtual balloons anchored to the probe ends.
+/// B toggles the head inflation; N toggles the tail inflation. Each squeezes the tunnel independently.
 pub fn balloon_control_input(
-    time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mut balloon: ResMut<BalloonControl>,
     tip_q: Query<&GlobalTransform, With<ProbeHead>>,
+    tail_q: Query<&GlobalTransform, With<CapsuleProbe>>,
 ) {
-    let forward = Vec3::Z;
+    let Some(tip_tf) = tip_q.iter().next() else {
+        return;
+    };
+    let Some(tail_tf) = tail_q.iter().next() else {
+        return;
+    };
 
-    let tip_z = tip_q.single().map(|t| t.translation().z).unwrap_or(0.0);
+    let tip_pos = tip_tf.translation();
+    let tail_pos = tail_tf.translation();
 
     if !balloon.initialized {
-        balloon.position = Vec3::new(0.0, 0.0, tip_z + 5.0);
         balloon.initialized = true;
     }
 
     if keys.just_pressed(KeyCode::KeyB) {
-        balloon.inflated = !balloon.inflated;
+        balloon.head_inflated = !balloon.head_inflated;
+    }
+    if keys.just_pressed(KeyCode::KeyN) {
+        balloon.tail_inflated = !balloon.tail_inflated;
     }
 
-    let step = balloon.move_speed * time.delta_secs();
-    if keys.pressed(KeyCode::KeyV) {
-        balloon.position += forward * step;
-    }
-    if keys.pressed(KeyCode::KeyC) {
-        balloon.position -= forward * step;
-    }
-
-    // Clamp balloon within reachable distance from probe tip based on front stop offset.
-    let front_offset = balloon.half_length * 5.0;
-    let dist = balloon.position.z - tip_z;
-    if dist > front_offset {
-        balloon.position.z = tip_z + front_offset;
-    }
+    // Keep balloons centered on their respective capsules.
+    balloon.position = tip_pos;
+    balloon.rear_position = tail_pos;
 }
 
 #[derive(Component)]
 pub struct BalloonMarker;
+
+#[derive(Component)]
+pub struct BalloonMarkerRear;
 
 pub fn spawn_balloon_marker(
     mut commands: Commands,
@@ -85,32 +89,45 @@ pub fn spawn_balloon_marker(
         ..default()
     });
 
-    commands.spawn((
-        BalloonMarker,
-        Mesh3d(mesh),
-        MeshMaterial3d(mat),
+    let marker_bundle = (
+        Mesh3d(mesh.clone()),
+        MeshMaterial3d(mat.clone()),
         Transform::default(),
         GlobalTransform::default(),
         Visibility::default(),
-    ));
+    );
+
+    commands.spawn((BalloonMarker, marker_bundle.clone()));
+    commands.spawn((BalloonMarkerRear, marker_bundle));
 }
 
 pub fn balloon_marker_update(
     balloon: Res<BalloonControl>,
-    mut marker_q: Query<&mut Transform, With<BalloonMarker>>,
+    mut markers: ParamSet<(
+        Query<&mut Transform, With<BalloonMarker>>,
+        Query<&mut Transform, With<BalloonMarkerRear>>,
+    )>,
 ) {
-    let Ok(mut tf) = marker_q.single_mut() else {
-        return;
+    let head_radius = if balloon.head_inflated {
+        balloon.inflated_radius
+    } else {
+        balloon.deflated_radius
     };
-
-    let radius = if balloon.inflated {
+    let tail_radius = if balloon.tail_inflated {
         balloon.inflated_radius
     } else {
         balloon.deflated_radius
     };
 
-    tf.translation = balloon.position;
-    tf.scale = Vec3::splat(radius);
+    if let Ok(mut tf) = markers.p0().single_mut() {
+        tf.translation = balloon.position;
+        tf.scale = Vec3::splat(head_radius);
+    }
+
+    if let Ok(mut tf) = markers.p1().single_mut() {
+        tf.translation = balloon.rear_position;
+        tf.scale = Vec3::splat(tail_radius);
+    }
 }
 
 #[derive(Component)]
@@ -151,11 +168,11 @@ pub fn balloon_body_update(
         return;
     };
 
-    // Shift collider backward so its front tip aligns near the visual marker at balloon.position.
-    tf.translation = balloon.position - Vec3::new(0.0, 0.0, balloon.half_length);
+    // Keep collider centered on the balloon position (matches capsule center).
+    tf.translation = balloon.position;
     tf.rotation = Quat::IDENTITY;
 
-    let radius = if balloon.inflated {
+    let radius = if balloon.head_inflated {
         balloon.inflated_radius
     } else {
         balloon.deflated_radius

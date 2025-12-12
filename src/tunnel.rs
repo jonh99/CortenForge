@@ -1,7 +1,8 @@
-use bevy::prelude::*;
 use bevy::color::Mix;
 use bevy::math::primitives::Cylinder;
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use smallvec::{smallvec, SmallVec};
 
 use crate::probe::ProbeHead;
 use crate::balloon_control::BalloonControl;
@@ -9,7 +10,7 @@ use crate::balloon_control::BalloonControl;
 #[derive(Component)]
 pub struct TunnelRing {
     pub base_radius: f32,
-    pub expanded_radius: f32,
+    pub contracted_radius: f32,
     pub current_radius: f32,
     pub half_height: f32,
 }
@@ -46,12 +47,12 @@ pub fn setup_tunnel(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Align scales with existing probe (capsule radius ~0.8). Base radius ~0.9; expanded ~1.3.
+    // Align scales with existing probe (capsule radius ~0.8). Base radius stays roomy; contraction squeezes tighter.
     let num_rings = 180;
     let ring_spacing = 0.3;
     let start_z = -20.0;
     let base_radius = 1.2;
-    let expanded_radius = 1.8;
+    let contracted_radius = 0.9;
     let half_height = 0.15;
 
     let ring_mesh = meshes.add(Mesh::from(Cylinder {
@@ -76,7 +77,7 @@ pub fn setup_tunnel(
         commands.spawn((
             TunnelRing {
                 base_radius,
-                expanded_radius,
+                contracted_radius,
                 current_radius: base_radius,
                 half_height,
             },
@@ -126,26 +127,29 @@ pub fn tunnel_expansion_system(
     };
     let _probe_z = probe_tf.translation().z;
 
-    let balloon_pos_z = if balloon.inflated {
-        Some(balloon.position.z)
-    } else {
-        None
-    };
+    let mut contraction_points: SmallVec<[f32; 2]> = smallvec![];
+    if balloon.head_inflated {
+        contraction_points.push(balloon.position.z);
+    }
+    if balloon.tail_inflated {
+        contraction_points.push(balloon.rear_position.z);
+    }
 
-    let strong_expand_radius = 3.0;
-    let soft_expand_radius = 6.0;
-    let expand_speed = 6.5;
+    // Keep the squeeze highly localized around each capsule end.
+    let strong_contract_radius = 1.2;
+    let soft_contract_radius = 2.4;
+    let contract_speed = 6.5;
 
     let base_color = Color::srgba(0.7, 0.4, 0.4, 0.25);
     let balloon_color = Color::srgba(0.55, 1.0, 0.55, 0.5);
-    let high_friction = 1.2;
-    let low_friction = 0.4;
+    let relaxed_friction = 1.2;
+    let contracted_friction = 1.8;
 
     let falloff = |dz: f32| {
-        if dz < strong_expand_radius {
+        if dz < strong_contract_radius {
             1.0
-        } else if dz < soft_expand_radius {
-            1.0 - (dz - strong_expand_radius) / (soft_expand_radius - strong_expand_radius)
+        } else if dz < soft_contract_radius {
+            1.0 - (dz - strong_contract_radius) / (soft_contract_radius - strong_contract_radius)
         } else {
             0.0
         }
@@ -153,17 +157,22 @@ pub fn tunnel_expansion_system(
 
     for (mut ring, tf, children, mut collider, mut friction) in rings_q.iter_mut() {
         let ring_z = tf.translation().z;
-        let balloon_factor = balloon_pos_z
-            .map(|bz| falloff((ring_z - bz).abs()))
-            .unwrap_or(0.0);
+        let balloon_factor = contraction_points
+            .iter()
+            .map(|&bz| falloff((ring_z - bz).abs()))
+            .fold(0.0, f32::max);
 
         let target_radius = if balloon_factor > 0.0 {
-            lerp(ring.base_radius, ring.expanded_radius, balloon_factor.clamp(0.0, 1.0))
+            lerp(
+                ring.base_radius,
+                ring.contracted_radius,
+                balloon_factor.clamp(0.0, 1.0),
+            )
         } else {
             ring.base_radius
         };
 
-        let alpha = 1.0 - f32::exp(-expand_speed * time.delta_secs());
+        let alpha = 1.0 - f32::exp(-contract_speed * time.delta_secs());
         ring.current_radius = lerp(ring.current_radius, target_radius, alpha);
 
         let scale_xy = ring.current_radius / ring.base_radius;
@@ -171,22 +180,22 @@ pub fn tunnel_expansion_system(
             if let Ok((mut v_tf, v_mat)) = visuals.get_mut(child) {
                 v_tf.scale = Vec3::new(scale_xy, scale_xy, 1.0);
 
-                let expansion_factor = ((ring.current_radius - ring.base_radius)
-                    / (ring.expanded_radius - ring.base_radius))
+                let contraction_factor = ((ring.base_radius - ring.current_radius)
+                    / (ring.base_radius - ring.contracted_radius))
                     .clamp(0.0, 1.0);
 
                 if let Some(mat) = materials.get_mut(&v_mat.0) {
-                    // Balloon expansion only (green gradient).
-                    mat.base_color = base_color.mix(&balloon_color, expansion_factor);
+                    // Balloon-induced contraction (green gradient highlights active squeeze).
+                    mat.base_color = base_color.mix(&balloon_color, contraction_factor);
                 }
             }
         }
 
         *collider = ring_shell_collider(ring.current_radius, ring.half_height);
 
-        let expansion_factor = ((ring.current_radius - ring.base_radius)
-            / (ring.expanded_radius - ring.base_radius))
+        let contraction_factor = ((ring.base_radius - ring.current_radius)
+            / (ring.base_radius - ring.contracted_radius))
             .clamp(0.0, 1.0);
-        friction.coefficient = lerp(high_friction, low_friction, expansion_factor);
+        friction.coefficient = lerp(relaxed_friction, contracted_friction, contraction_factor);
     }
 }

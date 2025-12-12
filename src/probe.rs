@@ -142,7 +142,7 @@ pub fn peristaltic_drive(
     mut joints: Query<(&mut ImpulseJoint, &SegmentSpring, &SegmentIndex)>,
     mut frictions: Query<(&SegmentIndex, &mut Friction), With<ProbeSegment>>,
 ) {
-    if !balloon.inflated {
+    if !(balloon.head_inflated || balloon.tail_inflated) {
         return;
     }
 
@@ -187,7 +187,7 @@ pub fn distributed_thrust(
         With<ProbeSegment>,
     >,
 ) {
-    if !balloon.inflated {
+    if !(balloon.head_inflated || balloon.tail_inflated) {
         for (_, mut force, mut impulse, mut velocity) in &mut query {
             force.force = Vec3::ZERO;
             impulse.impulse = Vec3::ZERO;
