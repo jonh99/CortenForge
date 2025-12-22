@@ -4,5 +4,6 @@
 .vscode/
 .idea/
 checklist.md
+docs/ml_refactor_plan.md
 assets/datasets/
 media/

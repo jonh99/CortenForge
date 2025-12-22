@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::balloon_control::BalloonControl;
+use crate::cli::RunMode;
 use crate::polyp::PolypRemoval;
 use crate::probe::StretchState;
 use crate::probe::ProbeHead;
@@ -73,6 +74,12 @@ pub struct DataRun {
     pub active: bool,
 }
 
+#[derive(Resource, Default)]
+pub struct DatagenInit {
+    pub started: bool,
+    pub elapsed: f32,
+}
+
 pub fn data_run_toggle(
     keys: Res<ButtonInput<KeyCode>>,
     mut auto: ResMut<AutoDrive>,
@@ -117,6 +124,41 @@ pub fn data_run_toggle(
         auto_timer.timer = Timer::from_seconds(8.0, TimerMode::Once);
     } else {
         auto_timer.timer.reset();
+    }
+}
+
+pub fn datagen_autostart(
+    mode: Res<RunMode>,
+    mut init: ResMut<DatagenInit>,
+    mut auto: ResMut<AutoDrive>,
+    mut data_run: ResMut<DataRun>,
+    mut pov: ResMut<PovState>,
+    mut free_cams: Query<&mut Camera, (With<Flycam>, Without<ProbePovCamera>)>,
+    mut probe_cams: Query<&mut Camera, With<ProbePovCamera>>,
+) {
+    if *mode != RunMode::Datagen || init.started {
+        return;
+    }
+    init.started = true;
+    init.elapsed = 0.0;
+    data_run.active = true;
+
+    auto.enabled = true;
+    auto.stage = AutoStage::AnchorTail;
+    auto.timer = 0.2;
+    auto.extend = false;
+    auto.retract = false;
+    auto.dir = AutoDir::Forward;
+    auto.last_head_z = 0.0;
+    auto.stuck_time = 0.0;
+    auto.primed_reverse = false;
+
+    pov.use_probe = true;
+    for mut cam in &mut free_cams {
+        cam.is_active = false;
+    }
+    for mut cam in &mut probe_cams {
+        cam.is_active = true;
     }
 }
 

@@ -1,5 +1,9 @@
+use clap::Parser;
+
+use colon_sim::cli::AppArgs;
 use colon_sim::run_app;
 
 fn main() {
-    run_app();
+    let args = AppArgs::parse();
+    run_app(args);
 }

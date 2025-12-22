@@ -7,6 +7,7 @@ pub mod polyp;
 pub mod probe;
 pub mod tunnel;
 pub mod vision;
+pub mod cli;
 
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -17,7 +18,9 @@ use balloon_control::{
     balloon_body_update, balloon_control_input, balloon_marker_update, spawn_balloon_body,
     spawn_balloon_marker, BalloonControl,
 };
-use autopilot::{auto_inchworm, auto_toggle, data_run_toggle, AutoDrive, DataRun};
+use autopilot::{
+    auto_inchworm, auto_toggle, data_run_toggle, datagen_autostart, AutoDrive, DataRun, DatagenInit,
+};
 use camera::{camera_controller, pov_toggle_system, setup_camera, PovState};
 use controls::{control_inputs_and_apply, ControlParams};
 use hud::{spawn_controls_ui, update_controls_ui};
@@ -30,15 +33,18 @@ use tunnel::{setup_tunnel, tunnel_expansion_system, cecum_detection, start_detec
 use vision::{
     auto_start_recording, auto_stop_recording_on_cecum, capture_front_camera_frame,
     on_front_capture_readback, poll_burn_inference, record_front_camera_metadata,
-    recorder_toggle_hotkey, schedule_burn_inference, setup_front_capture,
+    recorder_toggle_hotkey, schedule_burn_inference, setup_front_capture, finalize_datagen_run,
+    datagen_failsafe_recording,
     track_front_camera_state, AutoRecordTimer, BurnDetector, BurnInferenceState,
     FrontCameraFrameBuffer, FrontCaptureReadback, FrontCameraState, RecorderConfig, RecorderState,
     RecorderMotion,
 };
 
-pub fn run_app() {
-    let polyp_seed = PolypRandom::seed_from_env_or_time();
+pub fn run_app(args: crate::cli::AppArgs) {
+    let polyp_seed = args.seed.unwrap_or_else(PolypRandom::seed_from_env_or_time);
+    let headless = args.headless;
     App::new()
+        .insert_resource(args.mode)
         .insert_resource(AmbientLight {
             color: Color::srgb(1.0, 1.0, 1.0),
             brightness: 0.4,
@@ -54,6 +60,7 @@ pub fn run_app() {
         .insert_resource(PolypRemoval::default())
         .insert_resource(AutoDrive::default())
         .insert_resource(DataRun::default())
+        .insert_resource(DatagenInit::default())
         .insert_resource(CecumState::default())
         .insert_resource(PovState::default())
         .insert_resource(FrontCameraState::default())
@@ -61,9 +68,15 @@ pub fn run_app() {
         .insert_resource(FrontCaptureReadback::default())
         .insert_resource(BurnDetector::default())
         .insert_resource(BurnInferenceState::default())
-        .insert_resource(RecorderConfig::default())
+        .insert_resource(RecorderConfig {
+            output_root: args.output_root.clone(),
+            ..default()
+        })
         .insert_resource(RecorderState::default())
         .insert_resource(RecorderMotion::default())
+        .insert_resource(vision::CaptureLimit {
+            max_frames: args.max_frames,
+        })
         .insert_resource(AutoRecordTimer::default())
         .insert_resource(ControlParams {
             tension: 0.5,
@@ -74,7 +87,14 @@ pub fn run_app() {
             linear_damping: 0.2,
             friction: 1.2,
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                visible: !headless,
+                fit_canvas_to_parent: true,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(ConditionalRapierDebug)
         .add_systems(
@@ -99,6 +119,7 @@ pub fn run_app() {
             (
                 balloon_control_input,
                 balloon_body_update,
+                datagen_autostart,
                 data_run_toggle,
                 auto_toggle,
                 auto_inchworm,
@@ -120,6 +141,8 @@ pub fn run_app() {
                 recorder_toggle_hotkey,
                 auto_start_recording,
                 auto_stop_recording_on_cecum,
+                finalize_datagen_run.after(auto_stop_recording_on_cecum),
+                datagen_failsafe_recording,
                 record_front_camera_metadata.after(capture_front_camera_frame),
                 control_inputs_and_apply,
                 update_controls_ui,

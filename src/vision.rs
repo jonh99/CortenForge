@@ -1,3 +1,4 @@
+use bevy::app::AppExit;
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
@@ -16,6 +17,7 @@ use crate::polyp::PolypTelemetry;
 use crate::autopilot::AutoDrive;
 use crate::camera::PovState;
 use crate::tunnel::CecumState;
+use crate::cli::RunMode;
 
 #[derive(Component)]
 pub struct FrontCamera;
@@ -103,6 +105,7 @@ pub struct RecorderState {
     pub paused: bool,
     pub overlays_done: bool,
     pub initialized: bool,
+    pub manifest_written: bool,
 }
 
 impl Default for RecorderState {
@@ -116,6 +119,7 @@ impl Default for RecorderState {
             paused: false,
             overlays_done: false,
             initialized: false,
+            manifest_written: false,
         }
     }
 }
@@ -140,6 +144,11 @@ pub struct RecorderMotion {
     pub started: bool,
 }
 
+#[derive(Resource, Default)]
+pub struct CaptureLimit {
+    pub max_frames: Option<u32>,
+}
+
 #[derive(Serialize, Deserialize)]
 struct PolypLabel {
     center_world: [f32; 3],
@@ -157,6 +166,16 @@ struct CaptureMetadata {
     camera_active: bool,
     polyp_seed: u64,
     polyp_labels: Vec<PolypLabel>,
+}
+
+#[derive(Serialize)]
+struct RunManifest {
+    schema_version: u32,
+    seed: u64,
+    output_root: PathBuf,
+    run_dir: PathBuf,
+    started_at_unix: f64,
+    max_frames: Option<u32>,
 }
 
 pub fn track_front_camera_state(
@@ -306,11 +325,13 @@ pub fn recorder_toggle_hotkey(
     keys: Res<ButtonInput<KeyCode>>,
     config: ResMut<RecorderConfig>,
     mut state: ResMut<RecorderState>,
+    polyp_meta: Res<crate::polyp::PolypSpawnMeta>,
+    cap_limit: Res<CaptureLimit>,
 ) {
     if !keys.just_pressed(KeyCode::KeyL) {
         return;
     }
-    let now = SystemTime::now()
+    let _now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs_f64())
         .unwrap_or(0.0);
@@ -319,14 +340,13 @@ pub fn recorder_toggle_hotkey(
     state.last_toggle = time.elapsed_secs_f64();
     if state.enabled {
         if !state.initialized {
-            let session = format!("run_{}", now as u64);
-            let dir = config.output_root.join(session);
-            state.session_dir = dir;
-            state.frame_idx = 0;
-            let _ = fs::create_dir_all(&state.session_dir);
-            let _ = fs::create_dir_all(state.session_dir.join(IMAGES_DIR));
-            let _ = fs::create_dir_all(state.session_dir.join(LABELS_DIR));
-            state.initialized = true;
+            init_run_dirs(
+                &mut state,
+                &config,
+                time.elapsed_secs_f64(),
+                &polyp_meta,
+                &cap_limit,
+            );
         }
         state.paused = false;
         state.overlays_done = false;
@@ -343,6 +363,8 @@ pub fn auto_start_recording(
     config: ResMut<RecorderConfig>,
     mut state: ResMut<RecorderState>,
     mut motion: ResMut<RecorderMotion>,
+    polyp_meta: Res<crate::polyp::PolypSpawnMeta>,
+    cap_limit: Res<CaptureLimit>,
     head_q: Query<&GlobalTransform, With<crate::probe::ProbeHead>>,
 ) {
     if !auto.enabled || !pov.use_probe {
@@ -371,14 +393,7 @@ pub fn auto_start_recording(
     }
 
     if !state.initialized {
-        let session = format!("run_{}", time.elapsed_secs_f64() as u64);
-        let dir = config.output_root.join(session);
-        state.session_dir = dir;
-        state.frame_idx = 0;
-        let _ = fs::create_dir_all(&state.session_dir);
-        let _ = fs::create_dir_all(state.session_dir.join(IMAGES_DIR));
-        let _ = fs::create_dir_all(state.session_dir.join(LABELS_DIR));
-        state.initialized = true;
+        init_run_dirs(&mut state, &config, time.elapsed_secs_f64(), &polyp_meta, &cap_limit);
     }
     state.enabled = true;
     state.last_toggle = time.elapsed_secs_f64();
@@ -389,15 +404,18 @@ pub fn auto_start_recording(
 
 pub fn auto_stop_recording_on_cecum(
     cecum: Res<CecumState>,
-    data_run: Option<Res<crate::autopilot::DataRun>>,
+    mut data_run: ResMut<crate::autopilot::DataRun>,
+    mut auto: ResMut<AutoDrive>,
     mut state: ResMut<RecorderState>,
     mut auto_timer: ResMut<AutoRecordTimer>,
     mut motion: ResMut<RecorderMotion>,
+    run_mode: Option<Res<RunMode>>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     if !state.enabled {
         return;
     }
-    if !data_run.map_or(false, |r| r.active) {
+    if !data_run.active {
         return;
     }
     if cecum.reached {
@@ -412,6 +430,13 @@ pub fn auto_stop_recording_on_cecum(
         motion.last_head_z = None;
         motion.cumulative_forward = 0.0;
         motion.started = false;
+        state.initialized = false;
+        state.manifest_written = false;
+        data_run.active = false;
+        auto.enabled = false;
+        if run_mode.map_or(false, |m| *m == RunMode::Datagen) {
+            exit.write(AppExit::Success);
+        }
     }
 }
 
@@ -451,6 +476,39 @@ fn generate_overlays(run_dir: &Path) {
             .unwrap_or(meta.image);
         let _ = img.save(out_dir.join(filename));
     }
+}
+
+pub(crate) fn init_run_dirs(
+    state: &mut RecorderState,
+    config: &RecorderConfig,
+    started_at: f64,
+    polyp_meta: &crate::polyp::PolypSpawnMeta,
+    cap_limit: &CaptureLimit,
+) {
+    let session = format!("run_{}", started_at as u64);
+    let dir = config.output_root.join(session);
+    state.session_dir = dir;
+    state.frame_idx = 0;
+    let _ = fs::create_dir_all(&state.session_dir);
+    let _ = fs::create_dir_all(state.session_dir.join(IMAGES_DIR));
+    let _ = fs::create_dir_all(state.session_dir.join(LABELS_DIR));
+    let _ = fs::create_dir_all(state.session_dir.join(OVERLAYS_DIR));
+    if !state.manifest_written {
+        let manifest = RunManifest {
+            schema_version: 1,
+            seed: polyp_meta.seed,
+            output_root: config.output_root.clone(),
+            run_dir: state.session_dir.clone(),
+            started_at_unix: started_at,
+            max_frames: cap_limit.max_frames,
+        };
+        let manifest_path = state.session_dir.join("run_manifest.json");
+        if let Ok(serialized) = serde_json::to_string_pretty(&manifest) {
+            let _ = fs::write(manifest_path, serialized);
+            state.manifest_written = true;
+        }
+    }
+    state.initialized = true;
 }
 
 fn draw_rect(img: &mut RgbaImage, bbox: [f32; 4], color: Rgba<u8>, thickness: u32) {
@@ -507,6 +565,7 @@ pub fn record_front_camera_metadata(
     spawn_meta: Res<crate::polyp::PolypSpawnMeta>,
     polyp_telemetry: Res<PolypTelemetry>,
     polyps: Query<&GlobalTransform, With<crate::polyp::Polyp>>,
+    cap_limit: Res<CaptureLimit>,
 ) {
     if !state.enabled {
         return;
@@ -643,4 +702,70 @@ pub fn record_front_camera_metadata(
         let _ = fs::write(meta_path, serialized);
     }
     state.frame_idx += 1;
+
+    if let Some(max) = cap_limit.max_frames {
+        if state.frame_idx >= max as u64 {
+            state.enabled = false;
+            // Keep data_run.active true so finalize_datagen_run can cleanly exit and write overlays.
+        }
+    }
+}
+
+pub fn finalize_datagen_run(
+    mode: Res<RunMode>,
+    mut state: ResMut<RecorderState>,
+    mut data_run: ResMut<crate::autopilot::DataRun>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if *mode != RunMode::Datagen {
+        return;
+    }
+    if !data_run.active {
+        return;
+    }
+    if state.enabled || !state.initialized {
+        return;
+    }
+    if !state.overlays_done && state.initialized {
+        generate_overlays(&state.session_dir);
+        state.overlays_done = true;
+    }
+    data_run.active = false;
+    exit.write(AppExit::Success);
+}
+
+pub fn datagen_failsafe_recording(
+    time: Res<Time>,
+    mode: Res<RunMode>,
+    mut init: ResMut<crate::autopilot::DatagenInit>,
+    mut state: ResMut<RecorderState>,
+    mut motion: ResMut<RecorderMotion>,
+    config: ResMut<RecorderConfig>,
+    polyp_meta: Res<crate::polyp::PolypSpawnMeta>,
+    cap_limit: Res<CaptureLimit>,
+) {
+    if *mode != RunMode::Datagen {
+        return;
+    }
+    if !init.started || state.enabled {
+        return;
+    }
+    init.elapsed += time.delta_secs();
+    if init.elapsed < 5.0 {
+        return;
+    }
+    if !state.initialized {
+        init_run_dirs(
+            &mut state,
+            &config,
+            time.elapsed_secs_f64(),
+            &polyp_meta,
+            &cap_limit,
+        );
+    }
+    state.enabled = true;
+    state.last_toggle = time.elapsed_secs_f64();
+    state.paused = false;
+    motion.started = true;
+    init.elapsed = 0.0;
 }
