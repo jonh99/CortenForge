@@ -116,9 +116,15 @@ impl Default for DetectorHandle {
     fn default() -> Self {
         #[cfg(feature = "burn_runtime")]
         {
-            return Self {
-                detector: Box::new(BurnTinyDetDetector::from_default_or_random()),
-            };
+            if let Some(det) = BurnTinyDetDetector::from_default_or_fallback() {
+                return Self {
+                    detector: Box::new(det),
+                };
+            } else {
+                return Self {
+                    detector: Box::new(HeuristicDetector),
+                };
+            }
         }
         #[cfg(not(feature = "burn_runtime"))]
         {
@@ -148,19 +154,25 @@ impl BurnTinyDetDetector {
         })
     }
 
-    fn from_default_or_random() -> Self {
-        let device = <NdArray<f32> as Backend>::Device::default();
+    fn from_default_or_fallback() -> Option<Self> {
         let default_path = Path::new("checkpoints").join("tinydet.bin");
-        if let Ok(det) = Self::load_from_checkpoint(&default_path) {
-            return det;
+        if default_path.exists() {
+            match Self::load_from_checkpoint(&default_path) {
+                Ok(det) => return Some(det),
+                Err(err) => {
+                    warn!(
+                        "Burn checkpoint load failed at {:?}: {:?}. Falling back to heuristic.",
+                        default_path, err
+                    );
+                    return None;
+                }
+            }
         }
-        Self {
-            model: Arc::new(Mutex::new(TinyDet::<NdArray<f32>>::new(
-                TinyDetConfig::default(),
-                &device,
-            ))),
-            device,
-        }
+        warn!(
+            "Burn checkpoint {:?} not found; using heuristic detector instead.",
+            default_path
+        );
+        None
     }
 
     fn rgba_to_tensor(&self, rgba: &[u8], size: (u32, u32)) -> Tensor<NdArray<f32>, 4> {

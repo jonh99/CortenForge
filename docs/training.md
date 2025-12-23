@@ -29,6 +29,7 @@ What it does today:
 Notes:
 - Requires `--features burn_runtime` to pull in Burn and the training harness.
 - Val metric thresholds are tunable via CLI; adjust to trade off recall/precision during evaluation.
+- Runtime inference will attempt to load `checkpoints/tinydet.bin`; if missing or failed, it logs a warning and falls back to the heuristic detector.
 
 Next steps (nice-to-haves):
 - Expose predicted boxes/confidence to HUD/`DetectionResult` so runtime shows actual detections, not just a bool.
