@@ -30,7 +30,11 @@ fn load_run_dataset_normalizes_images_and_boxes() {
             { "bbox_px": [0.0, 0.0, 2.0, 2.0] }
         ]
     });
-    fs::write(labels_dir.join("frame_00000.json"), serde_json::to_string_pretty(&label).unwrap()).unwrap();
+    fs::write(
+        labels_dir.join("frame_00000.json"),
+        serde_json::to_string_pretty(&label).unwrap(),
+    )
+    .unwrap();
 
     let samples = load_run_dataset(run_dir).expect("dataset should load");
     assert_eq!(samples.len(), 1);
