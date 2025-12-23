@@ -64,6 +64,12 @@ pub struct BurnDetector {
     pub model_loaded: bool,
 }
 
+#[derive(Resource, Default, Clone)]
+pub struct DetectionOverlayState {
+    pub boxes: Vec<[f32; 4]>,
+    pub size: (u32, u32),
+}
+
 #[derive(Clone)]
 pub struct BurnDetectionResult {
     pub frame_id: u64,
@@ -490,6 +496,7 @@ pub fn schedule_burn_inference(
     mut handle: ResMut<DetectorHandle>,
     capture: Res<FrontCaptureTarget>,
     mut readback: ResMut<FrontCaptureReadback>,
+    mut overlay: ResMut<DetectionOverlayState>,
 ) {
     jobs.debounce.tick(time.delta());
     if jobs.pending.is_some() || !jobs.debounce.is_finished() {
@@ -510,6 +517,8 @@ pub fn schedule_burn_inference(
     };
     let result = handle.detector.detect(&f);
     burn_detector.model_loaded = true;
+    overlay.boxes = result.boxes.clone();
+    overlay.size = (capture.size.x, capture.size.y);
     jobs.last_result = Some(BurnDetectionResult {
         frame_id: result.frame_id,
         positive: result.positive,

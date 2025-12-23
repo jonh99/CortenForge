@@ -28,7 +28,7 @@ use balloon_control::{
 };
 use camera::{PovState, camera_controller, pov_toggle_system, setup_camera};
 use controls::{ControlParams, control_inputs_and_apply};
-use hud::{spawn_controls_ui, update_controls_ui};
+use hud::{spawn_controls_ui, spawn_detection_overlay, update_controls_ui};
 use polyp::{
     PolypDetectionVotes, PolypRandom, PolypRemoval, PolypSpawnMeta, PolypTelemetry,
     apply_detection_votes, polyp_detection_system, polyp_removal_system, spawn_polyps,
@@ -42,7 +42,7 @@ use vision::{
     auto_start_recording, auto_stop_recording_on_cecum, capture_front_camera_frame,
     datagen_failsafe_recording, finalize_datagen_run, on_front_capture_readback,
     poll_burn_inference, record_front_camera_metadata, recorder_toggle_hotkey,
-    schedule_burn_inference, setup_front_capture, track_front_camera_state,
+    schedule_burn_inference, setup_front_capture, track_front_camera_state, DetectionOverlayState,
 };
 
 pub fn run_app(args: crate::cli::AppArgs) {
@@ -75,6 +75,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
         .insert_resource(FrontCaptureReadback::default())
         .insert_resource(BurnDetector::default())
         .insert_resource(BurnInferenceState::default())
+        .insert_resource(DetectionOverlayState::default())
         .insert_resource(RecorderConfig {
             output_root: args.output_root.clone(),
             ..default()
@@ -117,6 +118,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 spawn_balloon_marker,
                 spawn_polyps,
                 spawn_controls_ui,
+                spawn_detection_overlay,
             )
                 .chain(),
         )
@@ -153,6 +155,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 record_front_camera_metadata.after(capture_front_camera_frame),
                 control_inputs_and_apply,
                 update_controls_ui,
+                hud::update_detection_overlay_ui.after(poll_burn_inference),
                 cecum_detection,
                 start_detection,
                 tunnel_expansion_system,

@@ -7,10 +7,14 @@ use bevy::ui::{
 use crate::controls::ControlParams;
 use crate::polyp::PolypTelemetry;
 use crate::probe::TipSense;
-use crate::vision::{BurnInferenceState, FrontCameraState, RecorderState};
+use crate::vision::{BurnInferenceState, DetectionOverlayState, FrontCameraState, RecorderState};
 
 #[derive(Component)]
 pub struct ControlText;
+#[derive(Component)]
+pub struct DetectionOverlayRoot;
+#[derive(Component)]
+pub struct DetectionBoxUI;
 
 pub fn spawn_controls_ui(mut commands: Commands) {
     let bg = Color::srgba(0.04, 0.08, 0.14, 0.82);
@@ -165,6 +169,57 @@ pub fn spawn_controls_ui(mut commands: Commands) {
                 TextColor(accent),
             ),
         ],
+    ));
+}
+
+pub fn update_detection_overlay_ui(
+    mut commands: Commands,
+    overlay: Res<DetectionOverlayState>,
+    root_q: Query<Entity, With<DetectionOverlayRoot>>,
+    boxes_q: Query<Entity, With<DetectionBoxUI>>,
+) {
+    if overlay.is_changed() {
+        for e in boxes_q.iter() {
+            commands.entity(e).despawn();
+        }
+        let Some(root) = root_q.iter().next() else {
+            return;
+        };
+        for b in overlay.boxes.iter() {
+            let w = (b[2] - b[0]).clamp(0.0, 1.0) * 100.0;
+            let h = (b[3] - b[1]).clamp(0.0, 1.0) * 100.0;
+            commands.entity(root).with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Percent((b[0] * 100.0).clamp(0.0, 100.0)),
+                        top: Val::Percent((b[1] * 100.0).clamp(0.0, 100.0)),
+                        width: Val::Percent(w),
+                        height: Val::Percent(h),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BorderColor::all(Color::srgba(0.1, 0.9, 1.0, 0.85)),
+                    BackgroundColor(Color::srgba(0.1, 0.7, 1.0, 0.08)),
+                    DetectionBoxUI,
+                ));
+            });
+        }
+    }
+}
+
+pub fn spawn_detection_overlay(mut commands: Commands) {
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(0.0),
+            left: Val::Px(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::NONE),
+        DetectionOverlayRoot,
     ));
 }
 
