@@ -29,3 +29,9 @@ What it does today:
 Notes:
 - Requires `--features burn_runtime` to pull in Burn and the training harness.
 - Val metric thresholds are tunable via CLI; adjust to trade off recall/precision during evaluation.
+
+Next steps (nice-to-haves):
+- Expose predicted boxes/confidence to HUD/`DetectionResult` so runtime shows actual detections, not just a bool.
+- Bundle a small demo checkpoint or fall back to the heuristic detector with a clear log when no Burn model is available.
+- Tighten validation metrics with per-image precision/recall or mAP in addition to mean IoU.
+- Add a sample `train` command here with typical flags, and expose inference thresholds via CLI/env.
