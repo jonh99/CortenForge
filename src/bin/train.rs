@@ -11,18 +11,38 @@ mod real {
     use burn::optim::adaptor::OptimizerAdaptor;
     use burn::record::{BinFileRecorder, FullPrecisionSettings, Recorder};
     use burn::tensor::backend::AutodiffBackend;
+    use clap::Parser;
     use colon_sim::burn_model::{TinyDet, TinyDetConfig, assign_targets_to_grid};
     use colon_sim::tools::burn_dataset::{BatchIter, DatasetConfig, split_runs};
 
-    const TRAIN_BATCH: usize = 2;
-    const EPOCHS: usize = 1;
-    const LOG_EVERY: usize = 1;
-    const LR_START: f64 = 1e-3;
-    const LR_END: f64 = 1e-4;
-    const CKPT_DIR: &str = "checkpoints";
-    const MODEL_CKPT: &str = "tinydet";
-    const OPT_CKPT: &str = "tinydet_optim";
-    const SCHED_CKPT: &str = "tinydet_sched";
+    #[derive(Parser, Debug)]
+    #[command(name = "train", about = "TinyDet training harness")]
+    struct TrainArgs {
+        /// Training batch size.
+        #[arg(long, default_value_t = 2)]
+        batch_size: usize,
+        /// Number of epochs to run.
+        #[arg(long, default_value_t = 1)]
+        epochs: usize,
+        /// Log every N steps.
+        #[arg(long, default_value_t = 1)]
+        log_every: usize,
+        /// Starting learning rate.
+        #[arg(long, default_value_t = 1e-3)]
+        lr_start: f64,
+        /// Ending learning rate.
+        #[arg(long, default_value_t = 1e-4)]
+        lr_end: f64,
+        /// Validation ratio (0..1).
+        #[arg(long, default_value_t = 0.2)]
+        val_ratio: f32,
+        /// Optional shuffle seed for deterministic splits/batching.
+        #[arg(long)]
+        seed: Option<u64>,
+        /// Checkpoint directory.
+        #[arg(long, default_value = "checkpoints")]
+        ckpt_dir: String,
+    }
 
     type Backend = NdArray<f32>;
     type ADBackend = Autodiff<Backend>;
@@ -34,19 +54,20 @@ mod real {
     type Scheduler = burn::lr_scheduler::linear::LinearLrScheduler;
 
     pub fn main_impl() -> Result<()> {
+        let args = TrainArgs::parse();
         let device = <ADBackend as burn::tensor::backend::Backend>::Device::default();
         let cfg = DatasetConfig {
             target_size: Some((128, 128)),
             flip_horizontal_prob: 0.5,
             max_boxes: 8,
-            seed: Some(42),
+            seed: args.seed,
             ..Default::default()
         };
 
         let root = Path::new("assets/datasets/captures");
         let indices = colon_sim::tools::burn_dataset::index_runs(root)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        let (train_idx, val_idx) = split_runs(indices, 0.2);
+        let (train_idx, val_idx) = split_runs(indices, args.val_ratio);
         let val_cfg = DatasetConfig {
             flip_horizontal_prob: 0.0,
             shuffle: false,
@@ -56,30 +77,30 @@ mod real {
         let mut model = TinyDet::<ADBackend>::new(TinyDetConfig::default(), &device);
         let mut optim = AdamWConfig::new().with_weight_decay(1e-4).init();
         let total_steps = {
-            let per_epoch = (train_idx.len().max(1) + TRAIN_BATCH - 1) / TRAIN_BATCH;
-            per_epoch.max(1) * EPOCHS
+            let per_epoch = (train_idx.len().max(1) + args.batch_size - 1) / args.batch_size;
+            per_epoch.max(1) * args.epochs
         };
         let mut scheduler =
-            LinearLrSchedulerConfig::new(LR_START, LR_END, total_steps.max(1)).init();
+            LinearLrSchedulerConfig::new(args.lr_start, args.lr_end, total_steps.max(1)).init();
         load_checkpoint(
-            CKPT_DIR,
-            MODEL_CKPT,
-            OPT_CKPT,
-            SCHED_CKPT,
+            &args.ckpt_dir,
+            "tinydet",
+            "tinydet_optim",
+            "tinydet_sched",
             &device,
             &mut model,
             &mut optim,
             &mut scheduler,
         );
 
-        for epoch in 0..EPOCHS {
+        for epoch in 0..args.epochs {
             println!("epoch {}", epoch + 1);
             let mut train = BatchIter::from_indices(train_idx.clone(), cfg.clone())
                 .map_err(|e| anyhow::anyhow!("{:?}", e))?;
             let mut step = 0usize;
 
             while let Some(batch) = train
-                .next_batch::<ADBackend>(TRAIN_BATCH, &device)
+                .next_batch::<ADBackend>(args.batch_size, &device)
                 .map_err(|e| anyhow::anyhow!("{:?}", e))?
             {
                 step += 1;
@@ -106,7 +127,7 @@ mod real {
                 let lr = <Scheduler as LrScheduler<ADBackend>>::step(&mut scheduler);
                 model = optim.step(lr, model, grads);
 
-                if step % LOG_EVERY == 0 {
+                if step % args.log_every == 0 {
                     let mean_iou = mean_iou_host(&box_logits, &t_boxes, &t_obj);
                     println!(
                         "step {step}: loss={:.4}, mean_iou={:.4}",
@@ -121,7 +142,7 @@ mod real {
             let mut val_sum = 0.0f32;
             let mut val_batches = 0usize;
             while let Some(val_batch) = val
-                .next_batch::<ADBackend>(TRAIN_BATCH, &device)
+                .next_batch::<ADBackend>(args.batch_size, &device)
                 .map_err(|e| anyhow::anyhow!("{:?}", e))?
             {
                 let (v_obj, v_boxes) = model.forward(val_batch.images.clone());
@@ -142,10 +163,10 @@ mod real {
             }
 
             save_checkpoint(
-                CKPT_DIR,
-                MODEL_CKPT,
-                OPT_CKPT,
-                SCHED_CKPT,
+                &args.ckpt_dir,
+                "tinydet",
+                "tinydet_optim",
+                "tinydet_sched",
                 &device,
                 &model,
                 &optim,
