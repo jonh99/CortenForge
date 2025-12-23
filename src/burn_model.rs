@@ -182,6 +182,7 @@ pub fn assign_targets_to_grid(
     let mut obj = vec![0.0f32; grid_h * grid_w];
     let mut tgt = vec![0.0f32; grid_h * grid_w * 4];
     let mut mask = vec![0.0f32; grid_h * grid_w * 4];
+    let mut score = vec![0.0f32; grid_h * grid_w];
 
     for b in boxes {
         let cx = (b[0] + b[2]) * 0.5;
@@ -189,16 +190,35 @@ pub fn assign_targets_to_grid(
         let gx = (cx * grid_w as f32).clamp(0.0, (grid_w - 1) as f32) as usize;
         let gy = (cy * grid_h as f32).clamp(0.0, (grid_h - 1) as f32) as usize;
         let idx = gy * grid_w + gx;
-        obj[idx] = 1.0;
-        let base = idx * 4;
-        tgt[base] = b[0];
-        tgt[base + 1] = b[1];
-        tgt[base + 2] = b[2];
-        tgt[base + 3] = b[3];
-        mask[base] = 1.0;
-        mask[base + 1] = 1.0;
-        mask[base + 2] = 1.0;
-        mask[base + 3] = 1.0;
+        // Score by IoU with the cell itself to pick the best-fitting box per cell.
+        let cell = [
+            gx as f32 / grid_w as f32,
+            gy as f32 / grid_h as f32,
+            (gx + 1) as f32 / grid_w as f32,
+            (gy + 1) as f32 / grid_h as f32,
+        ];
+        let inter_x0 = b[0].max(cell[0]);
+        let inter_y0 = b[1].max(cell[1]);
+        let inter_x1 = b[2].min(cell[2]);
+        let inter_y1 = b[3].min(cell[3]);
+        let inter = (inter_x1 - inter_x0).max(0.0) * (inter_y1 - inter_y0).max(0.0);
+        let area_b = (b[2] - b[0]).max(0.0) * (b[3] - b[1]).max(0.0);
+        let area_c = (cell[2] - cell[0]) * (cell[3] - cell[1]);
+        let iou = inter / (area_b + area_c - inter + 1e-6);
+
+        if iou > score[idx] {
+            score[idx] = iou;
+            obj[idx] = 1.0;
+            let base = idx * 4;
+            tgt[base] = b[0];
+            tgt[base + 1] = b[1];
+            tgt[base + 2] = b[2];
+            tgt[base + 3] = b[3];
+            mask[base] = 1.0;
+            mask[base + 1] = 1.0;
+            mask[base + 2] = 1.0;
+            mask[base + 3] = 1.0;
+        }
     }
 
     (obj, tgt, mask)
