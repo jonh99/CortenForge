@@ -12,8 +12,10 @@ mod real {
     use burn::record::{BinFileRecorder, FullPrecisionSettings, Recorder};
     use burn::tensor::backend::AutodiffBackend;
     use clap::Parser;
-    use colon_sim::burn_model::{TinyDet, TinyDetConfig, assign_targets_to_grid};
-    use colon_sim::tools::burn_dataset::{BatchIter, DatasetConfig, split_runs};
+    use colon_sim::burn_model::{nms, assign_targets_to_grid, TinyDet, TinyDetConfig};
+    use colon_sim::tools::burn_dataset::{
+        BatchIter, BurnBatch, DatasetConfig, split_runs,
+    };
 
     #[derive(Parser, Debug)]
     #[command(name = "train", about = "TinyDet training harness")]
@@ -146,13 +148,7 @@ mod real {
                 .map_err(|e| anyhow::anyhow!("{:?}", e))?
             {
                 let (v_obj, v_boxes) = model.forward(val_batch.images.clone());
-                let (t_obj, t_boxes, _) = build_targets(
-                    &val_batch,
-                    v_obj.dims()[2],
-                    v_obj.dims()[3],
-                    &device,
-                )?;
-                let val_iou = mean_iou_host(&v_boxes, &t_boxes, &t_obj);
+                let val_iou = mean_iou_nms(&v_obj, &v_boxes, &val_batch, 0.3, 0.5);
                 val_sum += val_iou;
                 val_batches += 1;
             }
@@ -368,6 +364,134 @@ mod real {
             }
         }
         if count == 0.0 { 0.0 } else { sum / count }
+    }
+
+    fn mean_iou_nms(
+        obj_logits: &burn::tensor::Tensor<ADBackend, 4>,
+        box_logits: &burn::tensor::Tensor<ADBackend, 4>,
+        batch: &BurnBatch<ADBackend>,
+        obj_thresh: f32,
+        iou_thresh: f32,
+    ) -> f32 {
+        let obj = match obj_logits.to_data().to_vec::<f32>() {
+            Ok(v) => v,
+            Err(_) => return 0.0,
+        };
+        let boxes = match box_logits.to_data().to_vec::<f32>() {
+            Ok(v) => v,
+            Err(_) => return 0.0,
+        };
+        let dims = obj_logits.dims();
+        if dims.len() != 4 {
+            return 0.0;
+        }
+        let (b, _c, h, w) = (dims[0], dims[1], dims[2], dims[3]);
+        let hw = h * w;
+
+        // Collect GT boxes per image.
+        let gt_boxes = match batch.boxes.to_data().to_vec::<f32>() {
+            Ok(v) => v,
+            Err(_) => return 0.0,
+        };
+        let gt_mask = match batch.box_mask.to_data().to_vec::<f32>() {
+            Ok(v) => v,
+            Err(_) => return 0.0,
+        };
+        let max_boxes = batch.boxes.dims()[1];
+
+        let mut all_iou = 0.0f32;
+        let mut all_matched = 0usize;
+
+        for bi in 0..b {
+            // Decode predictions for image bi.
+            let mut preds = Vec::new();
+            for yi in 0..h {
+                for xi in 0..w {
+                    let idx = bi * hw + yi * w + xi;
+                    let score = 1.0 / (1.0 + (-obj[idx]).exp());
+                    if score < obj_thresh {
+                        continue;
+                    }
+                    let base = bi * 4 * hw + yi * w + xi;
+                    let mut pb = [
+                        1.0 / (1.0 + (-boxes[base]).exp()),
+                        1.0 / (1.0 + (-boxes[base + hw]).exp()),
+                        1.0 / (1.0 + (-boxes[base + 2 * hw]).exp()),
+                        1.0 / (1.0 + (-boxes[base + 3 * hw]).exp()),
+                    ];
+                    pb[0] = pb[0].clamp(0.0, 1.0);
+                    pb[1] = pb[1].clamp(0.0, 1.0);
+                    pb[2] = pb[2].clamp(pb[0], 1.0);
+                    pb[3] = pb[3].clamp(pb[1], 1.0);
+                    preds.push((score, pb));
+                }
+            }
+            if preds.is_empty() {
+                continue;
+            }
+            preds.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            let mut boxes_only: Vec<[f32; 4]> = preds.iter().map(|p| p.1).collect();
+            let scores_only: Vec<f32> = preds.iter().map(|p| p.0).collect();
+            let keep = nms(boxes_only.clone(), scores_only, iou_thresh);
+            boxes_only = keep.iter().map(|&i| boxes_only[i]).collect();
+
+            let mut gt = Vec::new();
+            for gi in 0..max_boxes {
+                let m = gt_mask[bi * max_boxes + gi];
+                if m <= 0.0 {
+                    continue;
+                }
+                let base = (bi * max_boxes + gi) * 4;
+                gt.push([
+                    gt_boxes[base].clamp(0.0, 1.0),
+                    gt_boxes[base + 1].clamp(0.0, 1.0),
+                    gt_boxes[base + 2].clamp(0.0, 1.0),
+                    gt_boxes[base + 3].clamp(0.0, 1.0),
+                ]);
+            }
+            if gt.is_empty() || boxes_only.is_empty() {
+                continue;
+            }
+
+            fn iou_pair(a: &[f32; 4], b: &[f32; 4]) -> f32 {
+                let x0 = a[0].max(b[0]);
+                let y0 = a[1].max(b[1]);
+                let x1 = a[2].min(b[2]);
+                let y1 = a[3].min(b[3]);
+                let inter = (x1 - x0).max(0.0) * (y1 - y0).max(0.0);
+                let area_a = (a[2] - a[0]).max(0.0) * (a[3] - a[1]).max(0.0);
+                let area_b = (b[2] - b[0]).max(0.0) * (b[3] - b[1]).max(0.0);
+                let union = area_a + area_b - inter + 1e-6;
+                inter / union
+            }
+
+            let mut matched_gt = vec![false; gt.len()];
+            for pb in boxes_only {
+                let mut best = -1isize;
+                let mut best_iou = 0.0f32;
+                for (gidx, gb) in gt.iter().enumerate() {
+                    if matched_gt[gidx] {
+                        continue;
+                    }
+                    let i = iou_pair(gb, &pb);
+                    if i > best_iou {
+                        best_iou = i;
+                        best = gidx as isize;
+                    }
+                }
+                if best >= 0 && best_iou >= iou_thresh {
+                    matched_gt[best as usize] = true;
+                    all_iou += best_iou;
+                    all_matched += 1;
+                }
+            }
+        }
+
+        if all_matched == 0 {
+            0.0
+        } else {
+            all_iou / all_matched as f32
+        }
     }
 
     #[allow(dead_code)]
