@@ -95,7 +95,7 @@ impl<B: Backend> TinyDet<B> {
         let denom = box_mask.clone().sum() + Tensor::from_floats([1e-6], device);
         let box_loss = masked.sum() / denom;
 
-        // CIoU term computed on host data (placeholder until a fully tensorized version).
+        // CIoU term computed on host data (placeholder until a fully tensorized version; TODO: replace with tensor ops).
         let ciou_loss = self.ciou_loss_host(box_preds, target_boxes, box_mask, device);
 
         obj_loss + box_loss + ciou_loss
