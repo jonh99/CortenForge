@@ -70,6 +70,12 @@ pub struct DetectionOverlayState {
     pub size: (u32, u32),
 }
 
+#[derive(Resource, Debug, Clone, Copy)]
+pub struct InferenceThresholds {
+    pub obj_thresh: f32,
+    pub iou_thresh: f32,
+}
+
 #[derive(Clone)]
 pub struct BurnDetectionResult {
     pub frame_id: u64,
@@ -112,25 +118,19 @@ pub struct DetectorHandle {
     pub detector: Box<dyn vision_interfaces::Detector + Send + Sync>,
 }
 
-impl Default for DetectorHandle {
-    fn default() -> Self {
+impl DetectorHandle {
+    pub fn with_thresholds(thresh: InferenceThresholds) -> Self {
+        let _ = thresh;
         #[cfg(feature = "burn_runtime")]
         {
-            if let Some(det) = BurnTinyDetDetector::from_default_or_fallback() {
+            if let Some(det) = BurnTinyDetDetector::from_default_or_fallback(thresh) {
                 return Self {
                     detector: Box::new(det),
                 };
-            } else {
-                return Self {
-                    detector: Box::new(HeuristicDetector),
-                };
             }
         }
-        #[cfg(not(feature = "burn_runtime"))]
-        {
-            Self {
-                detector: Box::new(HeuristicDetector),
-            }
+        Self {
+            detector: Box::new(HeuristicDetector),
         }
     }
 }
@@ -139,11 +139,13 @@ impl Default for DetectorHandle {
 struct BurnTinyDetDetector {
     model: Arc<Mutex<TinyDet<NdArray<f32>>>>,
     device: <NdArray<f32> as Backend>::Device,
+    obj_thresh: f32,
+    iou_thresh: f32,
 }
 
 #[cfg(feature = "burn_runtime")]
 impl BurnTinyDetDetector {
-    fn load_from_checkpoint(path: &Path) -> anyhow::Result<Self> {
+    fn load_from_checkpoint(path: &Path, thresh: InferenceThresholds) -> anyhow::Result<Self> {
         let device = <NdArray<f32> as Backend>::Device::default();
         let recorder = BinFileRecorder::<FullPrecisionSettings>::new();
         let model = TinyDet::<NdArray<f32>>::new(TinyDetConfig::default(), &device)
@@ -151,13 +153,15 @@ impl BurnTinyDetDetector {
         Ok(Self {
             model: Arc::new(Mutex::new(model)),
             device,
+            obj_thresh: thresh.obj_thresh,
+            iou_thresh: thresh.iou_thresh,
         })
     }
 
-    fn from_default_or_fallback() -> Option<Self> {
+    fn from_default_or_fallback(thresh: InferenceThresholds) -> Option<Self> {
         let default_path = Path::new("checkpoints").join("tinydet.bin");
         if default_path.exists() {
-            match Self::load_from_checkpoint(&default_path) {
+            match Self::load_from_checkpoint(&default_path, thresh) {
                 Ok(det) => return Some(det),
                 Err(err) => {
                     warn!(
@@ -258,7 +262,7 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
             for xi in 0..w {
                 let idx = yi * w + xi;
                 let score = 1.0 / (1.0 + (-obj[idx]).exp());
-                if score < 0.3 {
+                if score < self.obj_thresh {
                     continue;
                 }
                 let base = yi * w + xi;
@@ -280,13 +284,13 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
         preds.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         let boxes_only: Vec<[f32; 4]> = preds.iter().map(|p| p.1).collect();
         let scores_only: Vec<f32> = preds.iter().map(|p| p.0).collect();
-        let keep = nms(boxes_only.clone(), scores_only, 0.5);
+        let keep = nms(boxes_only.clone(), scores_only, self.iou_thresh);
         let best_idx = keep.first().copied().unwrap_or(0);
         let best = preds.get(best_idx).cloned().unwrap_or((0.0, [0.0; 4]));
 
         DetectionResult {
             frame_id: frame.id,
-            positive: best.0 > 0.5,
+            positive: best.0 > self.obj_thresh,
             confidence: best.0 as f32,
             boxes: keep.iter().map(|&i| boxes_only[i]).collect(),
         }

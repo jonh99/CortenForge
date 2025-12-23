@@ -20,6 +20,20 @@ Common flags:
 - `--val-iou-thresh <f32>`: IoU threshold for NMS/matching (default 0.5)
 - `--patience <usize>` / `--patience-min-delta <f32>`: optional early stop on val IoU plateau
 
+Sample run:
+```bash
+cargo run --features burn_runtime --bin train -- \
+  --batch-size 4 \
+  --epochs 5 \
+  --scheduler cosine \
+  --lr-start 1e-3 \
+  --lr-end 1e-4 \
+  --val-ratio 0.2 \
+  --ckpt-every-epochs 1 \
+  --val-obj-thresh 0.3 \
+  --val-iou-thresh 0.5
+```
+
 What it does today:
 - Loads capture runs via `BatchIter` (train with aug; val without), builds TinyDet, AdamW, and a linear LR scheduler.
 - Runs epoch/batch loop with per-step optimizer updates; logs loss and mean IoU each log interval.
