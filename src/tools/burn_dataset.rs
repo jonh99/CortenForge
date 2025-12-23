@@ -1,5 +1,7 @@
 use image::imageops::FilterType;
-use rand::Rng;
+use rand::{seq::SliceRandom, Rng};
+#[cfg(feature = "burn_runtime")]
+use rand::SeedableRng;
 use serde::Deserialize;
 use std::error::Error;
 use std::fs;
@@ -28,7 +30,6 @@ pub fn split_runs(
     }
     let mut runs: Vec<_> = by_run.into_iter().collect();
     if val_ratio > 0.0 {
-        use rand::seq::SliceRandom;
         let mut rng = rand::thread_rng();
         runs.shuffle(&mut rng);
     }
@@ -416,7 +417,6 @@ pub struct BatchIter {
     indices: Vec<SampleIndex>,
     cursor: usize,
     cfg: DatasetConfig,
-    rng: rand::rngs::StdRng,
 }
 
 #[cfg(feature = "burn_runtime")]
@@ -445,7 +445,6 @@ impl BatchIter {
             indices,
             cursor: 0,
             cfg,
-            rng,
         })
     }
 

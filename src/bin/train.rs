@@ -1,17 +1,23 @@
-use std::path::Path;
-
 #[cfg(feature = "burn_runtime")]
 mod real {
-    use super::*;
+    use std::path::Path;
+
     use anyhow::Result;
-    use burn_ndarray::NdArray;
+    use burn::backend::{autodiff::Autodiff, ndarray::NdArray};
+    use burn::optim::{AdamWConfig, GradientsParams, Optimizer};
     use colon_sim::burn_model::{TinyDet, TinyDetConfig, assign_targets_to_grid};
     use colon_sim::tools::burn_dataset::{BatchIter, DatasetConfig, split_runs};
 
+    const TRAIN_BATCH: usize = 2;
+    const EPOCHS: usize = 1;
+    const LOG_EVERY: usize = 1;
+    const LR: f64 = 1e-3;
+
     type Backend = NdArray<f32>;
+    type ADBackend = Autodiff<Backend>;
 
     pub fn main_impl() -> Result<()> {
-        let device = <Backend as burn::tensor::backend::Backend>::Device::default();
+        let device = <ADBackend as burn::tensor::backend::Backend>::Device::default();
         let cfg = DatasetConfig {
             target_size: Some((128, 128)),
             flip_horizontal_prob: 0.5,
@@ -24,66 +30,85 @@ mod real {
         let indices = colon_sim::tools::burn_dataset::index_runs(root)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let (train_idx, val_idx) = split_runs(indices, 0.2);
-        let mut train = BatchIter::from_indices(train_idx, cfg.clone())
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        let mut val = BatchIter::from_indices(
-            val_idx,
-            DatasetConfig {
-                flip_horizontal_prob: 0.0,
-                ..cfg
-            },
-        )
-        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        let val_cfg = DatasetConfig {
+            flip_horizontal_prob: 0.0,
+            shuffle: false,
+            ..cfg
+        };
 
-        let model = TinyDet::<Backend>::new(TinyDetConfig::default(), &device);
+        let mut model = TinyDet::<ADBackend>::new(TinyDetConfig::default(), &device);
+        let mut optim = AdamWConfig::new().with_weight_decay(1e-4).init();
 
-        if let Some(batch) = train
-            .next_batch::<Backend>(1, &device)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?
-        {
-            let (obj_logits, box_logits) = model.forward(batch.images.clone());
-            let (t_obj, t_boxes, t_mask) =
-                build_targets(&batch, obj_logits.dims()[2], obj_logits.dims()[3], &device)?;
-            let loss = model.loss(
-                obj_logits,
-                box_logits.clone(),
-                t_obj.clone(),
-                t_boxes.clone(),
-                t_mask,
-                &device,
-            );
-            let loss_val = loss.to_data().to_vec::<f32>().unwrap_or_default();
-            let mean_iou = mean_iou_host(&box_logits, &t_boxes, &t_obj);
-            println!(
-                "dummy training step, loss={:?}, mean_iou={:?}",
-                loss_val.first(),
-                mean_iou
-            );
+        for epoch in 0..EPOCHS {
+            println!("epoch {}", epoch + 1);
+            let mut train = BatchIter::from_indices(train_idx.clone(), cfg.clone())
+                .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+            let mut step = 0usize;
 
+            while let Some(batch) = train
+                .next_batch::<ADBackend>(TRAIN_BATCH, &device)
+                .map_err(|e| anyhow::anyhow!("{:?}", e))?
+            {
+                step += 1;
+                let (obj_logits, box_logits) = model.forward(batch.images.clone());
+                let (t_obj, t_boxes, t_mask) =
+                    build_targets(&batch, obj_logits.dims()[2], obj_logits.dims()[3], &device)?;
+                let loss = model.loss(
+                    obj_logits,
+                    box_logits.clone(),
+                    t_obj.clone(),
+                    t_boxes.clone(),
+                    t_mask.clone(),
+                    &device,
+                );
+                let loss_scalar = loss
+                    .to_data()
+                    .to_vec::<f32>()
+                    .unwrap_or_default()
+                    .first()
+                    .copied()
+                    .unwrap_or(0.0);
+                let grads = loss.backward();
+                let grads = GradientsParams::from_grads(grads, &model);
+                model = optim.step(LR, model, grads);
+
+                if step % LOG_EVERY == 0 {
+                    let mean_iou = mean_iou_host(&box_logits, &t_boxes, &t_obj);
+                    println!(
+                        "step {step}: loss={:.4}, mean_iou={:.4}",
+                        loss_scalar,
+                        mean_iou
+                    );
+                }
+            }
+
+            let mut val = BatchIter::from_indices(val_idx.clone(), val_cfg.clone())
+                .map_err(|e| anyhow::anyhow!("{:?}", e))?;
             if let Some(val_batch) = val
-                .next_batch::<Backend>(1, &device)
+                .next_batch::<ADBackend>(TRAIN_BATCH, &device)
                 .map_err(|e| anyhow::anyhow!("{:?}", e))?
             {
                 let (v_obj, v_boxes) = model.forward(val_batch.images.clone());
-                let val_iou = mean_iou_host(&v_boxes, &v_boxes, &v_obj.sigmoid());
-                println!("val iou (placeholder) = {:?}", val_iou);
+                let val_iou =
+                    mean_iou_host(&v_boxes, &v_boxes, &burn::tensor::activation::sigmoid(v_obj));
+                println!("val mean IoU (placeholder) = {:.4}", val_iou);
+            } else {
+                println!("No val batches found under {:?}", root);
             }
-        } else {
-            println!("No training batches found under {:?}", root);
         }
 
         Ok(())
     }
 
     fn build_targets(
-        batch: &colon_sim::tools::burn_dataset::BurnBatch<Backend>,
+        batch: &colon_sim::tools::burn_dataset::BurnBatch<ADBackend>,
         grid_h: usize,
         grid_w: usize,
-        device: &<Backend as burn::tensor::backend::Backend>::Device,
+        device: &<ADBackend as burn::tensor::backend::Backend>::Device,
     ) -> Result<(
-        burn::tensor::Tensor<Backend, 4>,
-        burn::tensor::Tensor<Backend, 4>,
-        burn::tensor::Tensor<Backend, 4>,
+        burn::tensor::Tensor<ADBackend, 4>,
+        burn::tensor::Tensor<ADBackend, 4>,
+        burn::tensor::Tensor<ADBackend, 4>,
     )> {
         // Supports batch_size = 1 for now.
         let boxes_vec = batch
@@ -112,19 +137,19 @@ mod real {
         }
 
         let (obj, tgt, mask) = assign_targets_to_grid(&valid_boxes, grid_h, grid_w);
-        let obj_t = burn::tensor::Tensor::<Backend, 4>::from_floats(obj.as_slice(), device)
+        let obj_t = burn::tensor::Tensor::<ADBackend, 4>::from_floats(obj.as_slice(), device)
             .reshape([1, 1, grid_h, grid_w]);
-        let boxes_t = burn::tensor::Tensor::<Backend, 4>::from_floats(tgt.as_slice(), device)
+        let boxes_t = burn::tensor::Tensor::<ADBackend, 4>::from_floats(tgt.as_slice(), device)
             .reshape([1, 4, grid_h, grid_w]);
-        let mask_t = burn::tensor::Tensor::<Backend, 4>::from_floats(mask.as_slice(), device)
+        let mask_t = burn::tensor::Tensor::<ADBackend, 4>::from_floats(mask.as_slice(), device)
             .reshape([1, 4, grid_h, grid_w]);
         Ok((obj_t, boxes_t, mask_t))
     }
 
     fn mean_iou_host(
-        pred_boxes: &burn::tensor::Tensor<Backend, 4>,
-        target_boxes: &burn::tensor::Tensor<Backend, 4>,
-        target_obj: &burn::tensor::Tensor<Backend, 4>,
+        pred_boxes: &burn::tensor::Tensor<ADBackend, 4>,
+        target_boxes: &burn::tensor::Tensor<ADBackend, 4>,
+        target_obj: &burn::tensor::Tensor<ADBackend, 4>,
     ) -> f32 {
         fn fast_sigmoid(x: f32) -> f32 {
             1.0 / (1.0 + (-x).exp())
