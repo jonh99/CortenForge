@@ -1,6 +1,7 @@
 # Current weak points / risks
 
 - Model maturity: TinyDet is minimal, uses host-side CIoU, limited augmentation (flip/letterbox), and no robust target assignment or mAP computation.
+  - Next steps: tensorize CIoU in the loss; add stronger augmentations and target assignment; add mAP/PR metrics in validation.
 - Data quality: synthetic-only captures; no real-data validation; limited augmentation diversity.
 - Checkpointing & reproducibility: no bundled demo weights; splits not persisted (seeded shuffles exist but not enforced across runs).
 - Validation metrics: only mean IoU + precision/recall; no mAP/PR curves; NMS/threshold assumptions may not match deployment.
