@@ -23,7 +23,8 @@ Recommended steps to flesh out the training harness:
 - Add LR decay and optional early stop on val metric.
 
 7) Metric and loop improvements
-- Make val IoU more faithful (per-box matching with NMS) so it reflects real quality.
-- Expand the loop beyond the minimal step: multiple steps per epoch, configurable checkpoint cadence (per N steps/epochs), and a cosine scheduler option.
-- Add a `--patience` early-stop flag once the val metric is reliable.
-- Wire Burn inference into the runtime pipeline (`DetectionResult`) to exercise the model end-to-end.
+- Sequence:
+  - First, make val IoU more faithful (per-box matching with NMS) so it reflects real quality.
+  - Then expand the loop: multiple steps per epoch, configurable checkpoint cadence (per N steps/epochs), and a cosine scheduler option.
+  - After the metric is trustworthy, add a `--patience` early-stop flag.
+  - Finally, wire Burn inference into the runtime pipeline (`DetectionResult`) to exercise the model end-to-end.
