@@ -18,6 +18,7 @@ The TUI is an optional front-end kept separate from the core simulator. It is bu
 - `d`: start headless datagen (default output root)
 - `m`: read last metrics entry (`checkpoints/metrics.jsonl`) and display (auto-refreshed on tick)
 - `l`: tail last 5 lines of `logs/train.log` (auto-refreshed on tick)
+- `t`: start training with defaults (writes `logs/train_status.json`)
 - `↑` / `↓`: move selection in runs list (details shown in status pane)
 
 ## Status fields
@@ -26,6 +27,7 @@ The TUI is an optional front-end kept separate from the core simulator. It is bu
 - Logs: tail of `logs/train.log` (auto)
 - Progress: if `max_frames` is in the manifest, show frames recorded vs. max
 - PIDs: last launched datagen/train process IDs and whether they are still running (if started via TUI)
+- Train status: contents of `logs/train_status.json` if present (status/epoch/epochs/seed/step/loss/lr)
 
 ## Next steps
 - Optional: detect running datagen/train processes (and show progress) or surface error banners in the UI.

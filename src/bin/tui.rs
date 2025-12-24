@@ -1,5 +1,6 @@
 //! Minimal TUI scaffold kept separate from core. Built only with the `tui` feature.
 use std::io;
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use crossterm::{
@@ -14,6 +15,7 @@ use ratatui::{
     text::{Span, Spans},
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
+use serde_json::json;
 
 use colon_sim::service;
 
@@ -26,11 +28,11 @@ struct AppState {
     metrics: Vec<String>,
     datagen_pid: Option<u32>,
     train_pid: Option<u32>,
+    train_status: Option<serde_json::Value>,
 }
 
 fn main() -> io::Result<()> {
     if let Err(err) = run_app() {
-        // ensure raw mode is cleared on failure
         let _ = disable_raw_mode();
         eprintln!("TUI error: {err}");
     }
@@ -46,16 +48,14 @@ fn run_app() -> io::Result<()> {
     let tick_rate = Duration::from_millis(250);
     let mut last_tick = Instant::now();
     let mut state = AppState {
-        runs: vec![
-            "(placeholder) run_123".into(),
-            "(placeholder) run_456".into(),
-        ],
+        runs: Vec::new(),
         status: "Press q to quit".into(),
         selected: 0,
         logs: Vec::new(),
         metrics: Vec::new(),
         datagen_pid: None,
         train_pid: None,
+        train_status: None,
     };
 
     loop {
@@ -86,21 +86,17 @@ fn run_app() -> io::Result<()> {
 fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
     match code {
         KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
-        KeyCode::Char('r') => {
-            match service::list_runs(std::path::Path::new("assets/datasets/captures")) {
-                Ok(runs) => {
-                    state.runs = runs
-                        .into_iter()
-                        .map(|r| r.path.display().to_string())
-                        .collect();
-                    state.status = "Refreshed runs".into();
-                }
-                Err(err) => state.status = format!("List runs failed: {err}"),
+        KeyCode::Char('r') => match service::list_runs(Path::new("assets/datasets/captures")) {
+            Ok(runs) => {
+                state.runs = runs;
+                state.status = "Refreshed runs".into();
+                state.selected = 0;
             }
-        }
+            Err(err) => state.status = format!("List runs failed: {err}"),
+        },
         KeyCode::Char('d') => {
             let opts = service::DatagenOptions {
-                output_root: std::path::Path::new("assets/datasets/captures").to_path_buf(),
+                output_root: Path::new("assets/datasets/captures").to_path_buf(),
                 seed: None,
                 max_frames: None,
                 headless: true,
@@ -115,9 +111,30 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
                 Err(err) => state.status = format!("Datagen start failed: {err}"),
             }
         }
+        KeyCode::Char('t') => {
+            let status_path = Path::new("logs/train_status.json").to_path_buf();
+            let opts = service::TrainOptions {
+                input_root: Path::new("assets/datasets/captures_filtered").to_path_buf(),
+                val_ratio: 0.2,
+                batch_size: 2,
+                epochs: 1,
+                seed: Some(42),
+                drop_last: false,
+                real_val_dir: None,
+                status_file: Some(status_path),
+            };
+            match service::train_command(&opts).and_then(|cmd| service::spawn(&cmd)) {
+                Ok(child) => {
+                    state.train_pid = Some(child.id());
+                    state.status = format!("Started train (pid {})", child.id());
+                    state.train_status =
+                        Some(json!({"status":"running","epoch":0,"epochs":opts.epochs}));
+                }
+                Err(err) => state.status = format!("Train start failed: {err}"),
+            }
+        }
         KeyCode::Char('m') => {
-            match service::read_metrics(std::path::Path::new("checkpoints/metrics.jsonl"), Some(1))
-            {
+            match service::read_metrics(Path::new("checkpoints/metrics.jsonl"), Some(1)) {
                 Ok(mut rows) if !rows.is_empty() => {
                     let last = rows.pop().unwrap();
                     state.status = format!("Last metric: {}", last);
@@ -127,15 +144,13 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
                 Err(err) => state.status = format!("Read metrics failed: {err}"),
             }
         }
-        KeyCode::Char('l') => {
-            match service::read_log_tail(std::path::Path::new("logs/train.log"), 5) {
-                Ok(lines) => {
-                    state.logs = lines;
-                    state.status = "Tailed logs (last 5 lines)".into();
-                }
-                Err(err) => state.status = format!("Read log failed: {err}"),
+        KeyCode::Char('l') => match service::read_log_tail(Path::new("logs/train.log"), 5) {
+            Ok(lines) => {
+                state.logs = lines;
+                state.status = "Tailed logs (last 5 lines)".into();
             }
-        }
+            Err(err) => state.status = format!("Read log failed: {err}"),
+        },
         KeyCode::Up => {
             if state.selected > 0 {
                 state.selected -= 1;
@@ -155,9 +170,7 @@ fn tick(state: &mut AppState) {
     if state.status.is_empty() {
         state.status = "Press q to quit".into();
     }
-    if let Ok(mut rows) =
-        service::read_metrics(std::path::Path::new("checkpoints/metrics.jsonl"), Some(1))
-    {
+    if let Ok(mut rows) = service::read_metrics(Path::new("checkpoints/metrics.jsonl"), Some(1)) {
         if let Some(last) = rows.pop() {
             let epoch = last.get("epoch").and_then(|v| v.as_u64()).unwrap_or(0);
             let val = last
@@ -169,8 +182,11 @@ fn tick(state: &mut AppState) {
             state.metrics = vec![format!("epoch {epoch}: {val}")];
         }
     }
-    if let Ok(lines) = service::read_log_tail(std::path::Path::new("logs/train.log"), 5) {
+    if let Ok(lines) = service::read_log_tail(Path::new("logs/train.log"), 5) {
         state.logs = lines;
+    }
+    if let Some(status) = service::read_status(Path::new("logs/train_status.json")) {
+        state.train_status = Some(status);
     }
 }
 
@@ -220,6 +236,25 @@ fn draw_ui(f: &mut ratatui::Frame<CrosstermBackend<std::io::Stdout>>, state: &Ap
     if !state.metrics.is_empty() {
         status_lines.push("Metrics:".into());
         status_lines.extend(state.metrics.clone());
+    }
+    if let Some(s) = &state.train_status {
+        status_lines.push("Train status:".into());
+        if let Some(epoch) = s.get("epoch").and_then(|v| v.as_u64()) {
+            let epochs = s.get("epochs").and_then(|v| v.as_u64()).unwrap_or(0);
+            let step = s.get("step").and_then(|v| v.as_u64()).unwrap_or(0);
+            let lr = s.get("lr").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let loss = s.get("loss").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let status = s
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            status_lines.push(format!(
+                "{} epoch {}/{} step {} loss {:.4} lr {:.3e}",
+                status, epoch, epochs, step, loss, lr
+            ));
+        } else {
+            status_lines.push(format!("{}", s));
+        }
     }
     if let Some(detail) = selected_run_detail(state) {
         status_lines.push("Selected run:".into());

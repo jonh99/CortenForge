@@ -284,6 +284,19 @@ mod real {
                         "step {step}: loss={:.4}, mean_iou={:.4}",
                         loss_scalar, mean_iou_batch
                     );
+                    if let Some(path) = args.status_file.as_ref() {
+                        let _ = write_status(
+                            path,
+                            serde_json::json!({
+                                "epoch": epoch + 1,
+                                "epochs": args.epochs,
+                                "step": step,
+                                "lr": lr,
+                                "loss": loss_scalar,
+                                "status": "running"
+                            }),
+                        );
+                    }
                 }
 
                 if args.ckpt_every_steps > 0 && global_step % args.ckpt_every_steps == 0 {

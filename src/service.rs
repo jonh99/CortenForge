@@ -8,8 +8,7 @@ use std::process::{Child, Command};
 use serde::Deserialize;
 #[cfg(feature = "tui")]
 use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System};
-
-use crate::tools::burn_dataset::index_runs;
+use thiserror::Error;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RunManifestSummary {
@@ -30,7 +29,7 @@ pub struct RunInfo {
     pub overlay_count: usize,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum ServiceError {
     #[error("io error: {0}")]
     Io(#[from] io::Error),
@@ -83,6 +82,7 @@ fn count_artifacts(run_dir: &Path) -> (usize, usize, usize) {
         fs::read_dir(dir)
             .into_iter()
             .flatten()
+            .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some(ext))
             .count()
     };
