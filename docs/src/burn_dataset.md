@@ -34,6 +34,7 @@ if let Some(batch) = train.next_batch::<burn_ndarray::NdArrayBackend<f32>>(8)? {
 - `noise_*`: optional uniform noise per channel.
 - `blur_*`: optional blur.
 - `skip_empty_labels` (default true): drop frames with no boxes; warns instead of emitting zero-target batches.
+- `drop_last`: drop the last partial training batch if set (validation should keep partials).
 
 ## Reproducibility
 - `seed` controls shuffling in `BatchIter` so splits/batches are deterministic when set.

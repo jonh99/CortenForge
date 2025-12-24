@@ -34,6 +34,7 @@ cargo run --features "burn_runtime,burn_wgpu" --bin train -- --help
 - `--input-root <path>`: capture root to train from (default `assets/datasets/captures`); point to a filtered/pruned root if desired.
 - `--stratify-split`: stratify train/val by box-count buckets (0/1/2+) instead of pure run-level split.
 - `--split-manifest <path>`: optional JSON manifest; if present, load train/val label lists from it; if absent, save the current split for reuse.
+- `--drop-last`: drop the last partial training batch (can help BN stability). Validation never drops.
 - `--demo-checkpoint <path>`: optional model checkpoint to load at startup (model only; skips optimizer/scheduler). Useful for bundled/demo weights.
 - `--metrics-out <path>`: append per-epoch val metrics (IoU/PR/mAP, tp/fp/fn) with seed/thresholds.
 

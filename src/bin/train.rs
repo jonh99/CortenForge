@@ -72,6 +72,9 @@ mod real {
         /// Optional comma-separated list of additional IoU thresholds for evaluation (e.g., "0.5,0.75").
         #[arg(long)]
         val_iou_sweep: Option<String>,
+        /// Drop the last partial training batch (may help BN stability); val never drops.
+        #[arg(long, default_value_t = false)]
+        drop_last: bool,
         /// Early stop after N epochs without val IoU improvement (0 disables).
         #[arg(long, default_value_t = 0)]
         patience: usize,
@@ -129,6 +132,7 @@ mod real {
             flip_horizontal_prob: 0.5,
             max_boxes: 8,
             seed: effective_seed,
+            drop_last: args.drop_last,
             ..Default::default()
         };
 
@@ -167,6 +171,7 @@ mod real {
         let val_cfg = DatasetConfig {
             flip_horizontal_prob: 0.0,
             shuffle: false,
+            drop_last: false,
             ..cfg
         };
 

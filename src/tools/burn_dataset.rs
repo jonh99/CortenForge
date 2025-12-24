@@ -125,6 +125,8 @@ pub struct DatasetConfig {
     pub seed: Option<u64>,
     /// Skip frames with no bounding boxes.
     pub skip_empty_labels: bool,
+    /// Drop the last partial batch (training stability for small batches).
+    pub drop_last: bool,
 }
 
 impl Default for DatasetConfig {
@@ -146,6 +148,7 @@ impl Default for DatasetConfig {
             shuffle: true,
             seed: None,
             skip_empty_labels: true,
+            drop_last: false,
         }
     }
 }
@@ -789,6 +792,13 @@ impl BatchIter {
 
             let (width, height) = expected_size.expect("batch size > 0 ensures size is set");
             let batch_len = frame_ids.len();
+            if self.cfg.drop_last && batch_len < batch_size {
+                if self.cursor >= self.indices.len() {
+                    return Ok(None);
+                } else {
+                    continue;
+                }
+            }
             let image_shape = [batch_len, 3, height as usize, width as usize];
             let boxes_shape = [batch_len, self.cfg.max_boxes, 4];
             let mask_shape = [batch_len, self.cfg.max_boxes];
