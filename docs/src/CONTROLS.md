@@ -10,4 +10,4 @@
 
 Values update live and are mirrored in the top-left HUD. Press the keys to tighten/loosen and adjust movement to suit different tunnel sections.
 
-goal is to properly mimic biological peristalsis
+Goal: tune controls to properly mimic biological peristalsis.

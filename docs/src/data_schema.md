@@ -1,12 +1,14 @@
 # Data Schema and Run Layout
 
 Each run is stored under `run_<timestamp>/` with three subdirectories:
+
 - `images/` — raw PNG frames.
 - `labels/` — JSON label files (`frame_XXXXX.json`).
 - `overlays/` — PNGs with bounding boxes drawn (auto-generated at run end for data runs).
 
 ## run_manifest.json
 Written once per run:
+
 - `schema_version` (u32) — manifest schema version.
 - `seed` (u64) — polyp generation seed.
 - `output_root` (path) — root output directory.
@@ -15,6 +17,7 @@ Written once per run:
 - `max_frames` (optional u32) — capture frame cap, if provided.
 
 ## Label file (labels/frame_XXXXX.json)
+
 - `frame_id` (u64)
 - `sim_time` (f64)
 - `unix_time` (f64)

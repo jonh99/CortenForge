@@ -1,6 +1,7 @@
 # Burn dataset loader usage
 
-Example: load all capture runs, split train/val by run, and iterate batches with letterboxed resizing and padded boxes.
+## Quick start
+Load capture runs, split train/val by run, and iterate batches with letterboxed resizing and padded boxes:
 
 ```rust
 use colon_sim::tools::burn_dataset::{BatchIter, DatasetConfig, ResizeMode, split_runs, index_runs};
@@ -22,15 +23,17 @@ if let Some(batch) = train.next_batch::<burn_ndarray::NdArrayBackend<f32>>(8)? {
 }
 ```
 
-Note: `BatchIter`/`BurnBatch` require the `burn_runtime` feature enabled (e.g., `cargo test --features burn_runtime`, `cargo run --features burn_runtime --bin ...`, or `cargo build --features burn_runtime`), which pulls in the optional Burn dependency. The lower-level loaders (`load_run_dataset`, `DatasetSample`) work without that feature if you only need plain Rust structs.
+## Feature flags
+- `BatchIter`/`BurnBatch` require `--features burn_runtime` to pull in Burn (e.g., `cargo run --features burn_runtime --bin ...`).  
+- Lower-level loaders (`load_run_dataset`, `DatasetSample`) work without that feature if you only need plain Rust structs.
 
-Augmentation:
-- `DatasetConfig::flip_horizontal_prob` applies an optional horizontal flip and updates boxes accordingly (after resize/letterbox).
-- `DatasetConfig::scale_jitter_prob` / `scale_jitter_min` / `scale_jitter_max`: optional zoom in/out with bbox-safe padding/cropping.
-- `DatasetConfig::color_jitter_prob` / `color_jitter_strength`: optional brightness/contrast jitter.
-- `DatasetConfig::noise_prob` / `noise_strength`: optional uniform noise per channel.
-- `DatasetConfig::blur_prob` / `blur_sigma`: optional blur.
-- `DatasetConfig::skip_empty_labels` (default: true) drops frames with no bounding boxes; empty-label samples are skipped with a warning instead of feeding zero targets.
+## Augmentations
+- `flip_horizontal_prob`: optional horizontal flip with box updates (after resize/letterbox).
+- `scale_jitter_*`: optional zoom in/out with bbox-safe padding/cropping.
+- `color_jitter_*`: optional brightness/contrast jitter.
+- `noise_*`: optional uniform noise per channel.
+- `blur_*`: optional blur.
+- `skip_empty_labels` (default true): drop frames with no boxes; warns instead of emitting zero-target batches.
 
-Reproducibility:
-- `DatasetConfig::seed` is used for shuffling indices in `BatchIter` to make splits/batches deterministic when set.
+## Reproducibility
+- `seed` controls shuffling in `BatchIter` so splits/batches are deterministic when set.
