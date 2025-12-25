@@ -12,6 +12,35 @@ GPU (wgpu): add `burn_wgpu` alongside `burn_runtime`:
 cargo run --features "burn_runtime,burn_wgpu" --bin train -- --help
 ```
 
+High-performance preset (release, GPU, larger batch/epochs):
+```bash
+# From repo root
+cargo train_hp
+# Defaults: --input-root assets/datasets/captures_filtered --val-ratio 0.1 --batch-size 64 --epochs 20 --scheduler cosine --lr-start 3e-4 --lr-end 1e-5 --status-file logs/train_hp_status.json
+```
+Run from the repo root. Adjust adapter/backend in the shell if needed (`WGPU_POWER_PREF=high-performance`, `WGPU_BACKEND=dx12` or `vulkan`, `WGPU_ADAPTER_NAME=<name>`).
+
+Full one-liner (Windows, repo root, forces NVIDIA DX12 and logs adapter):
+<details>
+<summary>NVIDIA (DX12)</summary>
+
+```powershell
+$env:WGPU_POWER_PREF="high-performance"; $env:WGPU_BACKEND="dx12"; $env:WGPU_ADAPTER_NAME="NVIDIA"; $env:RUST_LOG="info,wgpu_core=info"; cargo train_hp -- --batch-size 64 --epochs 20 --scheduler cosine --lr-start 3e-4 --lr-end 1e-5 --status-file logs/train_hp_status.json
+```
+If DX12 picks WARP/CPU, try `WGPU_BACKEND="vulkan"` and set `WGPU_ADAPTER_NAME` to the exact adapter name from Device Manager.
+
+</details>
+
+<details>
+<summary>AMD (DX12)</summary>
+
+```powershell
+$env:WGPU_POWER_PREF="high-performance"; $env:WGPU_BACKEND="dx12"; $env:WGPU_ADAPTER_NAME="AMD"; $env:RUST_LOG="info,wgpu_core=info"; cargo train_hp -- --batch-size 64 --epochs 20 --scheduler cosine --lr-start 3e-4 --lr-end 1e-5 --status-file logs/train_hp_status.json
+```
+If DX12 picks WARP/CPU, try `WGPU_BACKEND="vulkan"` and set `WGPU_ADAPTER_NAME` to the exact adapter name from Device Manager.
+
+</details>
+
 ## End-to-end workflow
 - Capture/prune data: run `sim_view --mode datagen` to create runs under `assets/datasets/captures`, then prune empties with `cargo run --bin prune_empty -- --input assets/datasets/captures --output assets/datasets/captures_filtered`. Repeat for any real-val root (`assets/datasets/real_val_filtered`).
 - Point training at filtered roots: e.g., `--input-root assets/datasets/captures_filtered` and `--real-val-dir assets/datasets/real_val_filtered`, or rely on the split manifest/seed for repeatable splits.
