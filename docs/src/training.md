@@ -31,7 +31,7 @@ cargo run --features "burn_runtime,burn_wgpu" --bin train -- --help
 - `--val-obj-thresh <f32>` / `--val-iou-thresh <f32>`: thresholds for val matching (mAP sweep uses 0.05–0.95 objectness).
 - `--patience <usize>` / `--patience-min-delta <f32>`: optional early stop on val IoU plateau.
 - `--real-val-dir <path>`: use all runs under this path for validation instead of a split.
-- `--input-root <path>`: capture root to train from (default `assets/datasets/captures`); point to a filtered/pruned root if desired.
+- `--input-root <path>`: capture root to train from (default `assets/datasets/captures_filtered`); point to a filtered/pruned root if desired.
 - `--stratify-split`: stratify train/val by box-count buckets (0/1/2+) instead of pure run-level split.
 - `--split-manifest <path>`: optional JSON manifest; if present, load train/val label lists from it; if absent, save the current split for reuse.
 - `--drop-last`: drop the last partial training batch (can help BN stability). Validation never drops.

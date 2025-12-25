@@ -87,8 +87,8 @@ mod real {
         /// Print debug info for the first batch (targets and decoded preds).
         #[arg(long, default_value_t = false)]
         debug_batch: bool,
-        /// Input root containing capture runs (default: assets/datasets/captures).
-        #[arg(long, default_value = "assets/datasets/captures")]
+        /// Input root containing capture runs (default: assets/datasets/captures_filtered).
+        #[arg(long, default_value = "assets/datasets/captures_filtered")]
         input_root: String,
         /// Use stratified split by box count (0/1/2+) instead of run-level random split.
         #[arg(long, default_value_t = false)]
