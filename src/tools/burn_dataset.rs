@@ -85,7 +85,7 @@ pub fn split_runs_stratified(
     (train, val)
 }
 
-fn count_boxes(idx: &SampleIndex) -> Result<usize, Box<dyn Error + Send + Sync>> {
+pub fn count_boxes(idx: &SampleIndex) -> Result<usize, Box<dyn Error + Send + Sync>> {
     let raw = fs::read(&idx.label_path)?;
     let meta: LabelEntry = serde_json::from_slice(&raw)?;
     Ok(meta.polyp_labels.len())

@@ -23,9 +23,10 @@ mod real {
     use clap::Parser;
     use colon_sim::burn_model::{TinyDet, TinyDetConfig, assign_targets_to_grid, nms};
     use colon_sim::tools::burn_dataset::{
-        BatchIter, BurnBatch, DatasetConfig, split_runs, split_runs_stratified,
+        BatchIter, BurnBatch, DatasetConfig, SampleIndex, split_runs, split_runs_stratified,
     };
     use serde::{Deserialize, Serialize};
+    use std::collections::HashSet;
 
     #[derive(Parser, Debug)]
     #[command(name = "train", about = "TinyDet training harness")]
@@ -124,6 +125,18 @@ mod real {
         Cosine(CosineAnnealingLrScheduler),
     }
 
+    fn count_nonempty_samples(indices: &[SampleIndex]) -> usize {
+        let mut count = 0usize;
+        for idx in indices {
+            if let Ok(n) = colon_sim::tools::burn_dataset::count_boxes(idx) {
+                if n > 0 {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
     pub fn main_impl() -> Result<()> {
         let args = TrainArgs::parse();
         let device = <ADBackend as burn::tensor::backend::Backend>::Device::default();
@@ -171,6 +184,28 @@ mod real {
         } else {
             (default_val_idx, root.to_path_buf())
         };
+        // Quick stats so users see progress before the first batch.
+        let train_runs: HashSet<_> = train_idx.iter().map(|i| i.run_dir.clone()).collect();
+        let val_runs: HashSet<_> = val_idx.iter().map(|i| i.run_dir.clone()).collect();
+        let train_nonempty = count_nonempty_samples(&train_idx);
+        let val_nonempty = count_nonempty_samples(&val_idx);
+        println!(
+            "Dataset: train runs {} samples {} (non-empty {}), val runs {} samples {} (non-empty {})",
+            train_runs.len(),
+            train_idx.len(),
+            train_nonempty,
+            val_runs.len(),
+            val_idx.len(),
+            val_nonempty
+        );
+        if train_nonempty == 0 {
+            eprintln!("No non-empty training samples found (all frames missing boxes). Aborting.");
+            return Ok(());
+        }
+        println!(
+            "Entering training loop (log_every={}, batch_size={}, epochs={})",
+            args.log_every, batch_size, args.epochs
+        );
         let val_cfg = DatasetConfig {
             flip_horizontal_prob: 0.0,
             shuffle: false,
