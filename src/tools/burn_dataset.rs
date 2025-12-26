@@ -1198,7 +1198,7 @@ impl BatchIter {
 
             let mut expected_size: Option<(u32, u32)> = None;
             let mut skipped_empty = 0usize;
-            let mut skipped_missing = 0usize;
+            let skipped_missing = 0usize;
 
             let t_load = Instant::now();
             let mut loaded: Vec<_> = slice

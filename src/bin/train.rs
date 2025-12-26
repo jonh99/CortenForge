@@ -199,17 +199,17 @@ mod real {
                     load_split_manifest(manifest_path)?
                 } else {
                     let split = if args.stratify_split {
-                        split_runs_stratified(indices, args.val_ratio, args.seed)
+                        split_runs_stratified(indices.clone(), args.val_ratio, args.seed)
                     } else {
-                        split_runs(indices, args.val_ratio)
+                        split_runs(indices.clone(), args.val_ratio)
                     };
                     save_split_manifest(manifest_path, &split.0, &split.1, args.seed)?;
                     split
                 }
             } else if args.stratify_split {
-                split_runs_stratified(indices, args.val_ratio, args.seed)
+                split_runs_stratified(indices.clone(), args.val_ratio, args.seed)
             } else {
-                split_runs(indices, args.val_ratio)
+                split_runs(indices.clone(), args.val_ratio)
             }
         };
         if let Ok(summary) = colon_sim::tools::burn_dataset::summarize_runs(&indices) {
