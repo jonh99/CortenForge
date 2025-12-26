@@ -124,6 +124,7 @@ $env:WGPU_BACKEND="dx12"
 $env:WGPU_ADAPTER_NAME="NVIDIA"   # omit if single GPU
 $env:RUST_LOG="info,wgpu_core=info"
 $env:TENSOR_WAREHOUSE_MANIFEST="artifacts/tensor_warehouse/v<version>/manifest.json"  # required
+$env:WAREHOUSE_STORE="memory"  # or mmap/stream; stream prefetch via WAREHOUSE_PREFETCH (default 2)
 cargo run --features "burn_runtime,burn_wgpu" --bin train -- `
   --batch-size 64 `
   --epochs 20 `
@@ -134,7 +135,7 @@ cargo run --features "burn_runtime,burn_wgpu" --bin train -- `
 ```
 PowerShell one-liner variant:
 ```pwsh
-$env:WGPU_POWER_PREF="high-performance"; $env:WGPU_BACKEND="dx12"; $env:WGPU_ADAPTER_NAME="NVIDIA"; $env:RUST_LOG="info,wgpu_core=info"; $env:TENSOR_WAREHOUSE_MANIFEST="artifacts/tensor_warehouse/v<version>/manifest.json"; cargo train_hp -- --batch-size 64 --epochs 20 --scheduler cosine --lr-start 3e-4 --lr-end 1e-5 --val-ratio 0.1
+$env:WGPU_POWER_PREF="high-performance"; $env:WGPU_BACKEND="dx12"; $env:WGPU_ADAPTER_NAME="NVIDIA"; $env:RUST_LOG="info,wgpu_core=info"; $env:TENSOR_WAREHOUSE_MANIFEST="artifacts/tensor_warehouse/v<version>/manifest.json"; $env:WAREHOUSE_STORE="memory"; cargo train_hp
 ```
 
 ```bash

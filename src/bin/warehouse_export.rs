@@ -53,16 +53,42 @@ fn main() -> anyhow::Result<()> {
             .map(|r| r.run_dir.display().to_string())
             .collect();
         let run_kind = vec!["run"; run_ids.len()];
-        let total: Vec<u64> = manifest.summary.runs.iter().map(|r| r.total as u64).collect();
-        let non_empty: Vec<u64> =
-            manifest.summary.runs.iter().map(|r| r.non_empty as u64).collect();
-        let empty: Vec<u64> = manifest.summary.runs.iter().map(|r| r.empty as u64).collect();
-        let missing_image: Vec<u64> =
-            manifest.summary.runs.iter().map(|r| r.missing_image as u64).collect();
-        let missing_file: Vec<u64> =
-            manifest.summary.runs.iter().map(|r| r.missing_file as u64).collect();
-        let invalid: Vec<u64> =
-            manifest.summary.runs.iter().map(|r| r.invalid as u64).collect();
+        let total: Vec<u64> = manifest
+            .summary
+            .runs
+            .iter()
+            .map(|r| r.total as u64)
+            .collect();
+        let non_empty: Vec<u64> = manifest
+            .summary
+            .runs
+            .iter()
+            .map(|r| r.non_empty as u64)
+            .collect();
+        let empty: Vec<u64> = manifest
+            .summary
+            .runs
+            .iter()
+            .map(|r| r.empty as u64)
+            .collect();
+        let missing_image: Vec<u64> = manifest
+            .summary
+            .runs
+            .iter()
+            .map(|r| r.missing_image as u64)
+            .collect();
+        let missing_file: Vec<u64> = manifest
+            .summary
+            .runs
+            .iter()
+            .map(|r| r.missing_file as u64)
+            .collect();
+        let invalid: Vec<u64> = manifest
+            .summary
+            .runs
+            .iter()
+            .map(|r| r.invalid as u64)
+            .collect();
         let version: Vec<_> = vec![manifest.version.clone(); run_ids.len()];
         let code_version: Vec<_> = vec![manifest.code_version.clone(); run_ids.len()];
 

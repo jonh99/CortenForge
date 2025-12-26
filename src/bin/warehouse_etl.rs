@@ -26,7 +26,7 @@ struct Args {
     #[arg(long, default_value = "artifacts/tensor_warehouse")]
     output_root: String,
     /// Target size WxH (e.g., 256x256).
-    #[arg(long, value_parser = parse_target_size, default_value = "256x256")]
+    #[arg(long, value_parser = parse_target_size, default_value = "384x384")]
     target_size: (u32, u32),
     /// Resize mode: force or letterbox.
     #[arg(long, value_parser = ["force", "letterbox"], default_value = "letterbox")]

@@ -23,7 +23,7 @@ mod real {
     use clap::Parser;
     use colon_sim::burn_model::{TinyDet, TinyDetConfig, assign_targets_to_grid, nms};
     use colon_sim::tools::burn_dataset::{
-        BurnBatch, SampleIndex, WarehouseLoaders, WarehouseManifest,
+        BurnBatch, SampleIndex, WarehouseLoaders, WarehouseManifest, WarehouseStoreMode,
     };
     use serde::{Deserialize, Serialize};
 
@@ -108,6 +108,9 @@ mod real {
         /// Tensor warehouse manifest path (preferred). If set, training reads precomputed shards.
         #[arg(long, env = "TENSOR_WAREHOUSE_MANIFEST")]
         tensor_warehouse: Option<String>,
+        /// Warehouse store mode: memory (default), mmap, or stream. Can also be set via WAREHOUSE_STORE.
+        #[arg(long, value_parser = ["memory", "mmap", "stream"], env = "WAREHOUSE_STORE")]
+        warehouse_store: Option<String>,
     }
 
     #[cfg(feature = "burn_wgpu")]
@@ -125,18 +128,6 @@ mod real {
     enum Scheduler {
         Linear(LinearLrScheduler),
         Cosine(CosineAnnealingLrScheduler),
-    }
-
-    fn count_nonempty_samples(indices: &[SampleIndex]) -> usize {
-        let mut count = 0usize;
-        for idx in indices {
-            if let Ok(n) = colon_sim::tools::burn_dataset::count_boxes(idx) {
-                if n > 0 {
-                    count += 1;
-                }
-            }
-        }
-        count
     }
 
     pub fn main_impl() -> Result<()> {
@@ -176,6 +167,9 @@ mod real {
             manifest.summary.totals.missing_file,
             manifest.summary.totals.invalid
         );
+        if let Some(store) = args.warehouse_store.as_deref() {
+            println!("Warehouse store override: {}", store);
+        }
         let loaders = WarehouseLoaders::from_manifest_path(
             manifest_path,
             args.val_ratio,
@@ -1048,82 +1042,6 @@ mod real {
             prev_r = r;
         }
         ap
-    }
-
-    #[derive(Serialize, Deserialize)]
-    struct SplitManifest {
-        train: Vec<String>,
-        val: Vec<String>,
-        seed: Option<u64>,
-    }
-
-    fn save_split_manifest(
-        path: &Path,
-        train: &[colon_sim::tools::burn_dataset::SampleIndex],
-        val: &[colon_sim::tools::burn_dataset::SampleIndex],
-        seed: Option<u64>,
-    ) -> Result<()> {
-        let manifest = SplitManifest {
-            train: train
-                .iter()
-                .map(|s| s.label_path.display().to_string())
-                .collect(),
-            val: val
-                .iter()
-                .map(|s| s.label_path.display().to_string())
-                .collect(),
-            seed,
-        };
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        let json = serde_json::to_string_pretty(&manifest)?;
-        fs::write(path, json)?;
-        println!("Saved split manifest to {}", path.display());
-        Ok(())
-    }
-
-    fn load_split_manifest(
-        path: &Path,
-    ) -> Result<(
-        Vec<colon_sim::tools::burn_dataset::SampleIndex>,
-        Vec<colon_sim::tools::burn_dataset::SampleIndex>,
-    )> {
-        let raw = fs::read_to_string(path)?;
-        let manifest: SplitManifest = serde_json::from_str(&raw)?;
-        let train = manifest
-            .train
-            .iter()
-            .map(|p| {
-                let label_path = Path::new(p).to_path_buf();
-                let run_dir = label_path
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .unwrap_or_else(|| Path::new(""))
-                    .to_path_buf();
-                colon_sim::tools::burn_dataset::SampleIndex {
-                    run_dir,
-                    label_path,
-                }
-            })
-            .collect();
-        let val = manifest
-            .val
-            .iter()
-            .map(|p| {
-                let label_path = Path::new(p).to_path_buf();
-                let run_dir = label_path
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .unwrap_or_else(|| Path::new(""))
-                    .to_path_buf();
-                colon_sim::tools::burn_dataset::SampleIndex {
-                    run_dir,
-                    label_path,
-                }
-            })
-            .collect();
-        Ok((train, val))
     }
 
     #[allow(dead_code)]

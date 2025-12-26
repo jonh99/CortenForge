@@ -76,6 +76,8 @@ arrow-array = "46"
 arrow-schema = "46"
 arrow-select = "46"
 parquet = { version = "46", features = ["arrow"] }
+memmap2 = "0.9"
+crossbeam-channel = "0.5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 metal = "0.29"

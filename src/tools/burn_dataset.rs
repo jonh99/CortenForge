@@ -1,4 +1,8 @@
+#[cfg(feature = "burn_runtime")]
+use crossbeam_channel::{Receiver, bounded};
 use image::imageops::FilterType;
+#[cfg(feature = "burn_runtime")]
+use memmap2::MmapOptions;
 use rand::{Rng, SeedableRng, seq::SliceRandom};
 #[cfg(feature = "burn_runtime")]
 use rayon::prelude::*;
@@ -6,8 +10,10 @@ use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::fs;
 #[cfg(feature = "burn_runtime")]
-use std::io::{Read, Write};
+use std::fs::File;
 use std::path::{Path, PathBuf};
+#[cfg(feature = "burn_runtime")]
+use std::thread;
 #[cfg(feature = "burn_runtime")]
 use std::time::{Duration, Instant};
 use thiserror::Error;
@@ -692,6 +698,36 @@ pub enum ShardDType {
 pub enum Endianness {
     Little,
     Big,
+}
+
+/// Storage backend for warehouse shards.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum WarehouseStoreMode {
+    InMemory,
+    Mmap,
+    Streaming,
+}
+
+impl WarehouseStoreMode {
+    pub fn from_env() -> Self {
+        match std::env::var("WAREHOUSE_STORE")
+            .unwrap_or_else(|_| "memory".into())
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "mmap" | "mapped" | "mmaped" => WarehouseStoreMode::Mmap,
+            "stream" | "streaming" => WarehouseStoreMode::Streaming,
+            _ => WarehouseStoreMode::InMemory,
+        }
+    }
+
+    pub fn prefetch_from_env() -> usize {
+        std::env::var("WAREHOUSE_PREFETCH")
+            .ok()
+            .and_then(|s| s.parse::<usize>().ok())
+            .filter(|v| *v > 0)
+            .unwrap_or(2)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1381,12 +1417,14 @@ pub(crate) fn maybe_blur(
 #[cfg(test)]
 mod aug_tests {
     use super::maybe_hflip;
+    use rand::thread_rng;
 
     #[test]
     fn hflip_boxes_are_inverted() {
         let mut img = image::RgbImage::new(2, 2);
         let mut boxes = vec![[0.25, 0.0, 0.75, 1.0]];
-        maybe_hflip(&mut img, &mut boxes, 1.0);
+        let mut rng = thread_rng();
+        maybe_hflip(&mut img, &mut boxes, 1.0, &mut rng);
         let flipped = boxes[0];
         assert!((flipped[0] - 0.25).abs() < 1e-6);
         assert!((flipped[2] - 0.75).abs() < 1e-6);
@@ -1781,25 +1819,311 @@ struct ShardBuffer {
     width: u32,
     height: u32,
     max_boxes: usize,
-    images: Vec<f32>,
-    boxes: Vec<f32>,
-    masks: Vec<f32>,
+    backing: ShardBacking,
+}
+
+#[cfg(feature = "burn_runtime")]
+enum ShardBacking {
+    Owned {
+        images: Vec<f32>,
+        boxes: Vec<f32>,
+        masks: Vec<f32>,
+    },
+    Mmap {
+        mmap: std::sync::Arc<memmap2::Mmap>,
+        image_offset: usize,
+        boxes_offset: usize,
+        mask_offset: usize,
+    },
+    Streamed, // placeholder for future extensions
+}
+
+#[cfg(feature = "burn_runtime")]
+impl ShardBuffer {
+    fn copy_sample(
+        &self,
+        sample_idx: usize,
+        out_images: &mut Vec<f32>,
+        out_boxes: &mut Vec<f32>,
+        out_masks: &mut Vec<f32>,
+    ) -> DatasetResult<()> {
+        let w = self.width as usize;
+        let h = self.height as usize;
+        let img_elems = 3 * w * h;
+        let box_elems = self.max_boxes * 4;
+        let mask_elems = self.max_boxes;
+        match &self.backing {
+            ShardBacking::Owned {
+                images,
+                boxes,
+                masks,
+            } => {
+                let img_offset = sample_idx
+                    .checked_mul(img_elems)
+                    .ok_or_else(|| BurnDatasetError::Other("image offset overflow".into()))?;
+                let box_offset = sample_idx
+                    .checked_mul(box_elems)
+                    .ok_or_else(|| BurnDatasetError::Other("box offset overflow".into()))?;
+                let mask_offset = sample_idx
+                    .checked_mul(mask_elems)
+                    .ok_or_else(|| BurnDatasetError::Other("mask offset overflow".into()))?;
+                out_images.extend_from_slice(&images[img_offset..img_offset + img_elems]);
+                out_boxes.extend_from_slice(&boxes[box_offset..box_offset + box_elems]);
+                out_masks.extend_from_slice(&masks[mask_offset..mask_offset + mask_elems]);
+                Ok(())
+            }
+            ShardBacking::Mmap {
+                mmap,
+                image_offset,
+                boxes_offset,
+                mask_offset,
+            } => {
+                let img_bytes = img_elems
+                    .checked_mul(std::mem::size_of::<f32>())
+                    .ok_or_else(|| BurnDatasetError::Other("image byte size overflow".into()))?;
+                let box_bytes = box_elems
+                    .checked_mul(std::mem::size_of::<f32>())
+                    .ok_or_else(|| BurnDatasetError::Other("box byte size overflow".into()))?;
+                let mask_bytes = mask_elems
+                    .checked_mul(std::mem::size_of::<f32>())
+                    .ok_or_else(|| BurnDatasetError::Other("mask byte size overflow".into()))?;
+
+                let img_start = image_offset
+                    .checked_add(sample_idx * img_bytes)
+                    .ok_or_else(|| BurnDatasetError::Other("image offset overflow".into()))?;
+                let box_start = boxes_offset
+                    .checked_add(sample_idx * box_bytes)
+                    .ok_or_else(|| BurnDatasetError::Other("box offset overflow".into()))?;
+                let mask_start = mask_offset
+                    .checked_add(sample_idx * mask_bytes)
+                    .ok_or_else(|| BurnDatasetError::Other("mask offset overflow".into()))?;
+
+                if img_start + img_bytes > mmap.len()
+                    || box_start + box_bytes > mmap.len()
+                    || mask_start + mask_bytes > mmap.len()
+                {
+                    return Err(BurnDatasetError::Other(
+                        "shard mmap truncated for requested sample".into(),
+                    ));
+                }
+
+                for chunk in mmap[img_start..img_start + img_bytes].chunks_exact(4) {
+                    let mut arr = [0u8; 4];
+                    arr.copy_from_slice(chunk);
+                    out_images.push(f32::from_le_bytes(arr));
+                }
+                for chunk in mmap[box_start..box_start + box_bytes].chunks_exact(4) {
+                    let mut arr = [0u8; 4];
+                    arr.copy_from_slice(chunk);
+                    out_boxes.push(f32::from_le_bytes(arr));
+                }
+                for chunk in mmap[mask_start..mask_start + mask_bytes].chunks_exact(4) {
+                    let mut arr = [0u8; 4];
+                    arr.copy_from_slice(chunk);
+                    out_masks.push(f32::from_le_bytes(arr));
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 #[cfg(feature = "burn_runtime")]
 pub struct WarehouseBatchIter {
-    order: Vec<(usize, usize)>, // (shard_idx, sample_idx)
-    shards: std::sync::Arc<Vec<ShardBuffer>>,
-    cursor: usize,
-    drop_last: bool,
+    inner: WarehouseBatchIterKind,
     width: u32,
     height: u32,
     max_boxes: usize,
 }
 
 #[cfg(feature = "burn_runtime")]
+enum WarehouseBatchIterKind {
+    Direct {
+        order: Vec<(usize, usize)>,
+        shards: std::sync::Arc<Vec<ShardBuffer>>,
+        cursor: usize,
+        drop_last: bool,
+    },
+    Stream {
+        rx: Receiver<Option<StreamedSample>>,
+        remaining: usize,
+        drop_last: bool,
+        ended: bool,
+    },
+}
+
+#[cfg(feature = "burn_runtime")]
+struct StreamedSample {
+    images: Vec<f32>,
+    boxes: Vec<f32>,
+    masks: Vec<f32>,
+}
+
+#[cfg(feature = "burn_runtime")]
+struct StreamingStore {
+    shards: std::sync::Arc<Vec<ShardBuffer>>,
+    train_order: Vec<(usize, usize)>,
+    val_order: Vec<(usize, usize)>,
+    drop_last: bool,
+    width: u32,
+    height: u32,
+    max_boxes: usize,
+    prefetch: usize,
+}
+
+#[cfg(feature = "burn_runtime")]
+impl StreamingStore {
+    pub fn from_manifest_path(
+        manifest_path: &Path,
+        val_ratio: f32,
+        seed: Option<u64>,
+        drop_last: bool,
+        prefetch: usize,
+    ) -> DatasetResult<Self> {
+        let manifest = WarehouseManifest::load(manifest_path)?;
+        let root = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+        let shards_vec = manifest
+            .shards
+            .iter()
+            .enumerate()
+            .map(|(i, meta)| {
+                let t0 = Instant::now();
+                let shard = load_shard_mmap(root, meta)?;
+                let ms = t0.elapsed().as_millis();
+                println!(
+                    "[warehouse] stream shard {} (id={}, samples={}, size={}x{}, max_boxes={}) in {} ms",
+                    i,
+                    meta.id,
+                    shard.samples,
+                    shard.width,
+                    shard.height,
+                    shard.max_boxes,
+                    ms
+                );
+                Ok(shard)
+            })
+            .collect::<DatasetResult<Vec<_>>>()?;
+        let shards = std::sync::Arc::new(shards_vec);
+        let total_samples: usize = shards.iter().map(|s| s.samples).sum();
+        let mut order: Vec<(usize, usize)> = Vec::with_capacity(total_samples);
+        for (si, shard) in shards.iter().enumerate() {
+            for i in 0..shard.samples {
+                order.push((si, i));
+            }
+        }
+        if let Some(s) = seed {
+            let mut rng = rand::rngs::StdRng::seed_from_u64(s);
+            order.shuffle(&mut rng);
+        }
+        let val_count =
+            ((val_ratio.clamp(0.0, 1.0) * order.len() as f32).round() as usize).min(order.len());
+        let (val_order, train_order) = order.split_at(val_count);
+        let width = shards.get(0).map(|s| s.width).unwrap_or(0);
+        let height = shards.get(0).map(|s| s.height).unwrap_or(0);
+        let max_boxes = shards.get(0).map(|s| s.max_boxes).unwrap_or(0);
+        Ok(StreamingStore {
+            shards,
+            train_order: train_order.to_vec(),
+            val_order: val_order.to_vec(),
+            drop_last,
+            width,
+            height,
+            max_boxes,
+            prefetch: prefetch.max(1),
+        })
+    }
+
+    fn spawn_iter(&self, order: &[(usize, usize)], drop_last: bool) -> WarehouseBatchIter {
+        let (tx, rx) = bounded(self.prefetch);
+        let shards = self.shards.clone();
+        let order_vec: Vec<(usize, usize)> = order.to_vec();
+        let width = self.width;
+        let height = self.height;
+        let max_boxes = self.max_boxes;
+        thread::spawn(move || {
+            for (shard_idx, sample_idx) in order_vec.into_iter() {
+                let shard = match shards.get(shard_idx) {
+                    Some(s) => s,
+                    None => break,
+                };
+                let mut images = Vec::new();
+                let mut boxes = Vec::new();
+                let mut masks = Vec::new();
+                if let Err(e) = shard.copy_sample(sample_idx, &mut images, &mut boxes, &mut masks) {
+                    eprintln!("[warehouse] streaming copy error: {:?}", e);
+                    break;
+                }
+                if tx
+                    .send(Some(StreamedSample {
+                        images,
+                        boxes,
+                        masks,
+                    }))
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            let _ = tx.send(None);
+        });
+
+        WarehouseBatchIter {
+            inner: WarehouseBatchIterKind::Stream {
+                rx,
+                remaining: order.len(),
+                drop_last,
+                ended: false,
+            },
+            width,
+            height,
+            max_boxes,
+        }
+    }
+}
+
+#[cfg(feature = "burn_runtime")]
+impl WarehouseShardStore for StreamingStore {
+    fn train_iter(&self) -> WarehouseBatchIter {
+        self.spawn_iter(&self.train_order, self.drop_last)
+    }
+
+    fn val_iter(&self) -> WarehouseBatchIter {
+        self.spawn_iter(&self.val_order, false)
+    }
+
+    fn train_len(&self) -> usize {
+        self.train_order.len()
+    }
+
+    fn val_len(&self) -> usize {
+        self.val_order.len()
+    }
+
+    fn mode(&self) -> WarehouseStoreMode {
+        WarehouseStoreMode::Streaming
+    }
+}
+
+#[cfg(feature = "burn_runtime")]
+pub trait WarehouseShardStore: Send + Sync {
+    fn train_iter(&self) -> WarehouseBatchIter;
+    fn val_iter(&self) -> WarehouseBatchIter;
+    fn train_len(&self) -> usize;
+    fn val_len(&self) -> usize;
+    #[allow(dead_code)]
+    fn mode(&self) -> WarehouseStoreMode {
+        WarehouseStoreMode::InMemory
+    }
+}
+
+#[cfg(feature = "burn_runtime")]
 #[derive(Clone)]
 pub struct WarehouseLoaders {
+    store: Box<dyn WarehouseShardStore>,
+}
+
+#[cfg(feature = "burn_runtime")]
+struct InMemoryStore {
     shards: std::sync::Arc<Vec<ShardBuffer>>,
     train_order: Vec<(usize, usize)>,
     val_order: Vec<(usize, usize)>,
@@ -1810,65 +2134,7 @@ pub struct WarehouseLoaders {
 }
 
 #[cfg(feature = "burn_runtime")]
-impl WarehouseBatchIter {
-    pub fn len(&self) -> usize {
-        self.order.len()
-    }
-
-    pub fn next_batch<B: burn::tensor::backend::Backend>(
-        &mut self,
-        batch_size: usize,
-        device: &B::Device,
-    ) -> DatasetResult<Option<BurnBatch<B>>> {
-        if self.cursor >= self.order.len() {
-            return Ok(None);
-        }
-        let end = (self.cursor + batch_size).min(self.order.len());
-        let slice = &self.order[self.cursor..end];
-        self.cursor = end;
-        if self.drop_last && slice.len() < batch_size {
-            return Ok(None);
-        }
-        let mut images = Vec::new();
-        let mut boxes = Vec::new();
-        let mut masks = Vec::new();
-        let mut frame_ids = Vec::new();
-        for (global_idx, (shard_idx, sample_idx)) in slice.iter().enumerate() {
-            let shard = &self.shards[*shard_idx];
-            let w = shard.width as usize;
-            let h = shard.height as usize;
-            let img_offset = sample_idx * 3 * w * h;
-            let box_offset = sample_idx * shard.max_boxes * 4;
-            let mask_offset = sample_idx * shard.max_boxes;
-            images.extend_from_slice(&shard.images[img_offset..img_offset + 3 * w * h]);
-            boxes.extend_from_slice(&shard.boxes[box_offset..box_offset + shard.max_boxes * 4]);
-            masks.extend_from_slice(&shard.masks[mask_offset..mask_offset + shard.max_boxes]);
-            frame_ids.push(global_idx as f32);
-        }
-        let image_shape = [slice.len(), 3, self.height as usize, self.width as usize];
-        let boxes_shape = [slice.len(), self.max_boxes, 4];
-        let mask_shape = [slice.len(), self.max_boxes];
-
-        let images = burn::tensor::Tensor::<B, 1>::from_floats(images.as_slice(), device)
-            .reshape(image_shape);
-        let boxes = burn::tensor::Tensor::<B, 1>::from_floats(boxes.as_slice(), device)
-            .reshape(boxes_shape);
-        let box_mask =
-            burn::tensor::Tensor::<B, 1>::from_floats(masks.as_slice(), device).reshape(mask_shape);
-        let frame_ids = burn::tensor::Tensor::<B, 1>::from_floats(frame_ids.as_slice(), device)
-            .reshape([slice.len()]);
-
-        Ok(Some(BurnBatch {
-            images,
-            boxes,
-            box_mask,
-            frame_ids,
-        }))
-    }
-}
-
-#[cfg(feature = "burn_runtime")]
-impl WarehouseLoaders {
+impl InMemoryStore {
     pub fn from_manifest_path(
         manifest_path: &Path,
         val_ratio: f32,
@@ -1883,7 +2149,7 @@ impl WarehouseLoaders {
             .enumerate()
             .map(|(i, meta)| {
                 let t0 = Instant::now();
-                let shard = load_shard(root, meta)?;
+                let shard = load_shard_owned(root, meta)?;
                 let ms = t0.elapsed().as_millis();
                 println!(
                     "[warehouse] loaded shard {} (id={}, samples={}, size={}x{}, max_boxes={}) in {} ms",
@@ -1916,7 +2182,7 @@ impl WarehouseLoaders {
         let width = shards.get(0).map(|s| s.width).unwrap_or(0);
         let height = shards.get(0).map(|s| s.height).unwrap_or(0);
         let max_boxes = shards.get(0).map(|s| s.max_boxes).unwrap_or(0);
-        Ok(WarehouseLoaders {
+        Ok(InMemoryStore {
             shards,
             train_order: train_order.to_vec(),
             val_order: val_order.to_vec(),
@@ -1926,8 +2192,11 @@ impl WarehouseLoaders {
             max_boxes,
         })
     }
+}
 
-    pub fn train_iter(&self) -> WarehouseBatchIter {
+#[cfg(feature = "burn_runtime")]
+impl WarehouseShardStore for InMemoryStore {
+    fn train_iter(&self) -> WarehouseBatchIter {
         WarehouseBatchIter {
             order: self.train_order.clone(),
             shards: self.shards.clone(),
@@ -1939,7 +2208,7 @@ impl WarehouseLoaders {
         }
     }
 
-    pub fn val_iter(&self) -> WarehouseBatchIter {
+    fn val_iter(&self) -> WarehouseBatchIter {
         WarehouseBatchIter {
             order: self.val_order.clone(),
             shards: self.shards.clone(),
@@ -1951,12 +2220,303 @@ impl WarehouseLoaders {
         }
     }
 
-    pub fn train_len(&self) -> usize {
+    fn train_len(&self) -> usize {
         self.train_order.len()
     }
 
-    pub fn val_len(&self) -> usize {
+    fn val_len(&self) -> usize {
         self.val_order.len()
+    }
+}
+
+#[cfg(feature = "burn_runtime")]
+struct MmapStore {
+    shards: std::sync::Arc<Vec<ShardBuffer>>,
+    train_order: Vec<(usize, usize)>,
+    val_order: Vec<(usize, usize)>,
+    drop_last: bool,
+    width: u32,
+    height: u32,
+    max_boxes: usize,
+}
+
+#[cfg(feature = "burn_runtime")]
+impl MmapStore {
+    pub fn from_manifest_path(
+        manifest_path: &Path,
+        val_ratio: f32,
+        seed: Option<u64>,
+        drop_last: bool,
+    ) -> DatasetResult<Self> {
+        let manifest = WarehouseManifest::load(manifest_path)?;
+        let root = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+        let shards_vec = manifest
+            .shards
+            .iter()
+            .enumerate()
+            .map(|(i, meta)| {
+                let t0 = Instant::now();
+                let shard = load_shard_mmap(root, meta)?;
+                let ms = t0.elapsed().as_millis();
+                println!(
+                    "[warehouse] mmap shard {} (id={}, samples={}, size={}x{}, max_boxes={}) in {} ms",
+                    i,
+                    meta.id,
+                    shard.samples,
+                    shard.width,
+                    shard.height,
+                    shard.max_boxes,
+                    ms
+                );
+                Ok(shard)
+            })
+            .collect::<DatasetResult<Vec<_>>>()?;
+        let shards = std::sync::Arc::new(shards_vec);
+        let total_samples: usize = shards.iter().map(|s| s.samples).sum();
+        let mut order: Vec<(usize, usize)> = Vec::with_capacity(total_samples);
+        for (si, shard) in shards.iter().enumerate() {
+            for i in 0..shard.samples {
+                order.push((si, i));
+            }
+        }
+        if let Some(s) = seed {
+            let mut rng = rand::rngs::StdRng::seed_from_u64(s);
+            order.shuffle(&mut rng);
+        }
+        let val_count =
+            ((val_ratio.clamp(0.0, 1.0) * order.len() as f32).round() as usize).min(order.len());
+        let (val_order, train_order) = order.split_at(val_count);
+        let width = shards.get(0).map(|s| s.width).unwrap_or(0);
+        let height = shards.get(0).map(|s| s.height).unwrap_or(0);
+        let max_boxes = shards.get(0).map(|s| s.max_boxes).unwrap_or(0);
+        Ok(MmapStore {
+            shards,
+            train_order: train_order.to_vec(),
+            val_order: val_order.to_vec(),
+            drop_last,
+            width,
+            height,
+            max_boxes,
+        })
+    }
+}
+
+#[cfg(feature = "burn_runtime")]
+impl WarehouseShardStore for MmapStore {
+    fn train_iter(&self) -> WarehouseBatchIter {
+        WarehouseBatchIter {
+            inner: WarehouseBatchIterKind::Direct {
+                order: self.train_order.clone(),
+                shards: self.shards.clone(),
+                cursor: 0,
+                drop_last: self.drop_last,
+            },
+            width: self.width,
+            height: self.height,
+            max_boxes: self.max_boxes,
+        }
+    }
+
+    fn val_iter(&self) -> WarehouseBatchIter {
+        WarehouseBatchIter {
+            inner: WarehouseBatchIterKind::Direct {
+                order: self.val_order.clone(),
+                shards: self.shards.clone(),
+                cursor: 0,
+                drop_last: false,
+            },
+            width: self.width,
+            height: self.height,
+            max_boxes: self.max_boxes,
+        }
+    }
+
+    fn train_len(&self) -> usize {
+        self.train_order.len()
+    }
+
+    fn val_len(&self) -> usize {
+        self.val_order.len()
+    }
+
+    fn mode(&self) -> WarehouseStoreMode {
+        WarehouseStoreMode::Mmap
+    }
+}
+#[cfg(feature = "burn_runtime")]
+impl WarehouseBatchIter {
+    pub fn len(&self) -> usize {
+        match &self.inner {
+            WarehouseBatchIterKind::Direct { order, .. } => order.len(),
+            WarehouseBatchIterKind::Stream { remaining, .. } => *remaining,
+        }
+    }
+
+    pub fn next_batch<B: burn::tensor::backend::Backend>(
+        &mut self,
+        batch_size: usize,
+        device: &B::Device,
+    ) -> DatasetResult<Option<BurnBatch<B>>> {
+        match &mut self.inner {
+            WarehouseBatchIterKind::Direct {
+                order,
+                shards,
+                cursor,
+                drop_last,
+            } => {
+                if *cursor >= order.len() {
+                    return Ok(None);
+                }
+                let end = (*cursor + batch_size).min(order.len());
+                let slice = &order[*cursor..end];
+                *cursor = end;
+                if *drop_last && slice.len() < batch_size {
+                    return Ok(None);
+                }
+                let mut images = Vec::new();
+                let mut boxes = Vec::new();
+                let mut masks = Vec::new();
+                let mut frame_ids = Vec::new();
+                for (global_idx, (shard_idx, sample_idx)) in slice.iter().enumerate() {
+                    let shard = &shards[*shard_idx];
+                    shard.copy_sample(*sample_idx, &mut images, &mut boxes, &mut masks)?;
+                    frame_ids.push(global_idx as f32);
+                }
+                let image_shape = [slice.len(), 3, self.height as usize, self.width as usize];
+                let boxes_shape = [slice.len(), self.max_boxes, 4];
+                let mask_shape = [slice.len(), self.max_boxes];
+
+                let images = burn::tensor::Tensor::<B, 1>::from_floats(images.as_slice(), device)
+                    .reshape(image_shape);
+                let boxes = burn::tensor::Tensor::<B, 1>::from_floats(boxes.as_slice(), device)
+                    .reshape(boxes_shape);
+                let box_mask = burn::tensor::Tensor::<B, 1>::from_floats(masks.as_slice(), device)
+                    .reshape(mask_shape);
+                let frame_ids =
+                    burn::tensor::Tensor::<B, 1>::from_floats(frame_ids.as_slice(), device)
+                        .reshape([slice.len()]);
+
+                Ok(Some(BurnBatch {
+                    images,
+                    boxes,
+                    box_mask,
+                    frame_ids,
+                }))
+            }
+            WarehouseBatchIterKind::Stream {
+                rx,
+                remaining,
+                drop_last,
+                ended,
+            } => {
+                if *ended || *remaining == 0 {
+                    return Ok(None);
+                }
+                let mut images = Vec::new();
+                let mut boxes = Vec::new();
+                let mut masks = Vec::new();
+                let mut frame_ids = Vec::new();
+                let mut pulled = 0usize;
+                while pulled < batch_size {
+                    match rx.recv() {
+                        Ok(Some(sample)) => {
+                            images.extend_from_slice(&sample.images);
+                            boxes.extend_from_slice(&sample.boxes);
+                            masks.extend_from_slice(&sample.masks);
+                            frame_ids.push(pulled as f32);
+                            pulled += 1;
+                        }
+                        Ok(None) => {
+                            *ended = true;
+                            break;
+                        }
+                        Err(_) => {
+                            *ended = true;
+                            break;
+                        }
+                    }
+                }
+                if pulled == 0 || (*drop_last && pulled < batch_size) {
+                    return Ok(None);
+                }
+                *remaining = remaining.saturating_sub(pulled);
+                let image_shape = [pulled, 3, self.height as usize, self.width as usize];
+                let boxes_shape = [pulled, self.max_boxes, 4];
+                let mask_shape = [pulled, self.max_boxes];
+                let images = burn::tensor::Tensor::<B, 1>::from_floats(images.as_slice(), device)
+                    .reshape(image_shape);
+                let boxes = burn::tensor::Tensor::<B, 1>::from_floats(boxes.as_slice(), device)
+                    .reshape(boxes_shape);
+                let box_mask = burn::tensor::Tensor::<B, 1>::from_floats(masks.as_slice(), device)
+                    .reshape(mask_shape);
+                let frame_ids =
+                    burn::tensor::Tensor::<B, 1>::from_floats(frame_ids.as_slice(), device)
+                        .reshape([pulled]);
+                Ok(Some(BurnBatch {
+                    images,
+                    boxes,
+                    box_mask,
+                    frame_ids,
+                }))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "burn_runtime")]
+impl WarehouseLoaders {
+    pub fn from_manifest_path(
+        manifest_path: &Path,
+        val_ratio: f32,
+        seed: Option<u64>,
+        drop_last: bool,
+    ) -> DatasetResult<Self> {
+        let mode = WarehouseStoreMode::from_env();
+        println!("[warehouse] store mode: {:?}", mode);
+        match mode {
+            WarehouseStoreMode::InMemory => {
+                let store =
+                    InMemoryStore::from_manifest_path(manifest_path, val_ratio, seed, drop_last)?;
+                Ok(WarehouseLoaders {
+                    store: Box::new(store),
+                })
+            }
+            WarehouseStoreMode::Mmap => {
+                let store =
+                    MmapStore::from_manifest_path(manifest_path, val_ratio, seed, drop_last)?;
+                Ok(WarehouseLoaders {
+                    store: Box::new(store),
+                })
+            }
+            WarehouseStoreMode::Streaming => {
+                let store = StreamingStore::from_manifest_path(
+                    manifest_path,
+                    val_ratio,
+                    seed,
+                    drop_last,
+                    WarehouseStoreMode::prefetch_from_env(),
+                )?;
+                Ok(WarehouseLoaders {
+                    store: Box::new(store),
+                })
+            }
+        }
+    }
+
+    pub fn train_iter(&self) -> WarehouseBatchIter {
+        self.store.train_iter()
+    }
+
+    pub fn val_iter(&self) -> WarehouseBatchIter {
+        self.store.val_iter()
+    }
+
+    pub fn train_len(&self) -> usize {
+        self.store.train_len()
+    }
+
+    pub fn val_len(&self) -> usize {
+        self.store.val_len()
     }
 }
 
@@ -1975,7 +2535,7 @@ fn read_u64_le(data: &[u8]) -> u64 {
 }
 
 #[cfg(feature = "burn_runtime")]
-fn load_shard(root: &Path, meta: &ShardMetadata) -> DatasetResult<ShardBuffer> {
+fn load_shard_owned(root: &Path, meta: &ShardMetadata) -> DatasetResult<ShardBuffer> {
     let path = root.join(&meta.relative_path);
     let data = fs::read(&path).map_err(|e| BurnDatasetError::Io {
         path: path.clone(),
@@ -2081,8 +2641,110 @@ fn load_shard(root: &Path, meta: &ShardMetadata) -> DatasetResult<ShardBuffer> {
         width,
         height,
         max_boxes,
-        images,
-        boxes,
-        masks,
+        backing: ShardBacking::Owned {
+            images,
+            boxes,
+            masks,
+        },
+    })
+}
+
+#[cfg(feature = "burn_runtime")]
+fn load_shard_mmap(root: &Path, meta: &ShardMetadata) -> DatasetResult<ShardBuffer> {
+    let path = root.join(&meta.relative_path);
+    let file = File::open(&path).map_err(|e| BurnDatasetError::Io {
+        path: path.clone(),
+        source: e,
+    })?;
+    let mmap = unsafe {
+        MmapOptions::new()
+            .map(&file)
+            .map_err(|e| BurnDatasetError::Io {
+                path: path.clone(),
+                source: std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+            })?
+    };
+    let data = &mmap[..];
+    if data.len() < 4 {
+        return Err(BurnDatasetError::Other(format!(
+            "shard {} too small",
+            path.display()
+        )));
+    }
+    if &data[0..4] != b"TWH1" {
+        return Err(BurnDatasetError::Other(format!(
+            "bad magic in shard {}",
+            path.display()
+        )));
+    }
+    let shard_version = read_u32_le(&data[4..8]);
+    if shard_version != meta.shard_version {
+        return Err(BurnDatasetError::Other(format!(
+            "shard version mismatch {} vs {}",
+            shard_version, meta.shard_version
+        )));
+    }
+    let dtype = read_u32_le(&data[8..12]);
+    if dtype != 0 {
+        return Err(BurnDatasetError::Other(format!(
+            "unsupported dtype {} in {}",
+            dtype,
+            path.display()
+        )));
+    }
+    let width = read_u32_le(&data[16..20]);
+    let height = read_u32_le(&data[20..24]);
+    let channels = read_u32_le(&data[24..28]);
+    if channels != 3 {
+        return Err(BurnDatasetError::Other(format!(
+            "unsupported channels {} in {}",
+            channels,
+            path.display()
+        )));
+    }
+    let max_boxes = read_u32_le(&data[28..32]) as usize;
+    let samples = read_u64_le(&data[32..40]) as usize;
+    let image_offset = read_u64_le(&data[40..48]) as usize;
+    let boxes_offset = read_u64_le(&data[48..56]) as usize;
+    let mask_offset = read_u64_le(&data[56..64]) as usize;
+
+    let image_elems = samples
+        .checked_mul(3)
+        .and_then(|v| v.checked_mul(width as usize))
+        .and_then(|v| v.checked_mul(height as usize))
+        .ok_or_else(|| BurnDatasetError::Other("overflow computing image elems".into()))?;
+    let box_elems = samples
+        .checked_mul(max_boxes)
+        .and_then(|v| v.checked_mul(4))
+        .ok_or_else(|| BurnDatasetError::Other("overflow computing box elems".into()))?;
+    let mask_elems = samples
+        .checked_mul(max_boxes)
+        .ok_or_else(|| BurnDatasetError::Other("overflow computing mask elems".into()))?;
+
+    let image_bytes = image_elems * std::mem::size_of::<f32>();
+    let box_bytes = box_elems * std::mem::size_of::<f32>();
+    let mask_bytes = mask_elems * std::mem::size_of::<f32>();
+
+    if image_offset + image_bytes > data.len()
+        || boxes_offset + box_bytes > data.len()
+        || mask_offset + mask_bytes > data.len()
+    {
+        return Err(BurnDatasetError::Other(format!(
+            "shard {} truncated",
+            path.display()
+        )));
+    }
+
+    Ok(ShardBuffer {
+        samples,
+        width,
+        height,
+        max_boxes,
+        backing: ShardBacking::Mmap {
+            mmap: std::sync::Arc::new(mmap),
+            image_offset,
+            boxes_offset,
+            mask_offset,
+        },
     })
 }
