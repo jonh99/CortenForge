@@ -11,6 +11,8 @@ use std::cmp::max;
 use std::fs;
 #[cfg(feature = "burn_runtime")]
 use std::fs::File;
+#[cfg(feature = "burn_runtime")]
+use std::io::Write;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "burn_runtime")]
 use std::thread;
@@ -1924,6 +1926,9 @@ impl ShardBuffer {
                 }
                 Ok(())
             }
+            ShardBacking::Streamed => Err(BurnDatasetError::Other(
+                "streamed backing not supported in copy_sample".into(),
+            )),
         }
     }
 }
@@ -2117,7 +2122,6 @@ pub trait WarehouseShardStore: Send + Sync {
 }
 
 #[cfg(feature = "burn_runtime")]
-#[derive(Clone)]
 pub struct WarehouseLoaders {
     store: Box<dyn WarehouseShardStore>,
 }
@@ -2198,10 +2202,12 @@ impl InMemoryStore {
 impl WarehouseShardStore for InMemoryStore {
     fn train_iter(&self) -> WarehouseBatchIter {
         WarehouseBatchIter {
-            order: self.train_order.clone(),
-            shards: self.shards.clone(),
-            cursor: 0,
-            drop_last: self.drop_last,
+            inner: WarehouseBatchIterKind::Direct {
+                order: self.train_order.clone(),
+                shards: self.shards.clone(),
+                cursor: 0,
+                drop_last: self.drop_last,
+            },
             width: self.width,
             height: self.height,
             max_boxes: self.max_boxes,
@@ -2210,10 +2216,12 @@ impl WarehouseShardStore for InMemoryStore {
 
     fn val_iter(&self) -> WarehouseBatchIter {
         WarehouseBatchIter {
-            order: self.val_order.clone(),
-            shards: self.shards.clone(),
-            cursor: 0,
-            drop_last: false,
+            inner: WarehouseBatchIterKind::Direct {
+                order: self.val_order.clone(),
+                shards: self.shards.clone(),
+                cursor: 0,
+                drop_last: false,
+            },
             width: self.width,
             height: self.height,
             max_boxes: self.max_boxes,

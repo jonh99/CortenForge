@@ -37,8 +37,9 @@ A versioned, precomputed tensor store so training never decodes or resizes on th
 ## Analytics
 - Export manifest summaries to Parquet:  
   `cargo run --bin warehouse_export -- --manifest artifacts/tensor_warehouse/v<version>/manifest.json --out logs/warehouse_summary.parquet`
-- Quick peek with DuckDB:  
-  `duckdb -c "SELECT * FROM 'logs/warehouse_summary.parquet' LIMIT 5"`
+- Quick peek with Polars/DataFusion (Rust examples):
+  - Polars (Rust): load with `polars::prelude::LazyFrame::scan_parquet("logs/warehouse_summary.parquet", Default::default())?;`
+  - DataFusion (SQL): use a `SessionContext`, `register_parquet`, then `sql("SELECT * FROM warehouse_summary LIMIT 5")`.
 
 ## Notes
 - Version key = SHA256(source root + cacheable transform config + max_boxes + skip_empty + code_version), stored in manifest; shards live under `v<version>/`.
