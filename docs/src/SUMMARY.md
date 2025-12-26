@@ -14,6 +14,3 @@
   - [CLI Usage](cli.md)
   - [TUI](tui.md)
   - [Controls](CONTROLS.md)
-- [Appendix](appendix_overview.md)
-  - [Checklist](checklist.md)
-  - [GPU Monitoring](gpu_monitoring.md)
