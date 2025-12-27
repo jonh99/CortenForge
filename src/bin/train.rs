@@ -20,7 +20,7 @@ mod real {
     use burn::tensor::backend::AutodiffBackend;
     #[cfg(feature = "burn_wgpu")]
     use burn_wgpu::Wgpu;
-    use clap::Parser;
+    use clap::{ArgAction, Parser};
     use colon_sim::burn_model::{
         BigDet, BigDetConfig, BoundingBoxModel, ModelOutputs, ModelTargets, TinyDet, TinyDetConfig,
         assign_targets_to_grid, nms,
@@ -34,10 +34,10 @@ mod real {
     #[command(name = "train", about = "TinyDet training harness")]
     struct TrainArgs {
         /// Training batch size.
-        #[arg(long, default_value_t = 2)]
+        #[arg(long, default_value_t = 2, action = ArgAction::Set)]
         batch_size: usize,
         /// Number of epochs to run.
-        #[arg(long, default_value_t = 1)]
+        #[arg(long, default_value_t = 1, action = ArgAction::Set)]
         epochs: usize,
         /// Log every N steps.
         #[arg(long, default_value_t = 1)]
@@ -46,40 +46,45 @@ mod real {
         #[arg(long, default_value_t = true)]
         trace_steps: bool,
         /// Starting learning rate.
-        #[arg(long, default_value_t = 1e-3)]
+        #[arg(long, default_value_t = 1e-3, action = ArgAction::Set)]
         lr_start: f64,
         /// Ending learning rate.
-        #[arg(long, default_value_t = 1e-4)]
+        #[arg(long, default_value_t = 1e-4, action = ArgAction::Set)]
         lr_end: f64,
         /// Validation ratio (0..1).
-        #[arg(long, default_value_t = 0.2)]
+        #[arg(long, default_value_t = 0.2, action = ArgAction::Set)]
         val_ratio: f32,
         /// Optional shuffle seed for deterministic splits/batching.
         #[arg(long)]
         seed: Option<u64>,
         /// Checkpoint directory.
-        #[arg(long, default_value = "checkpoints")]
+        #[arg(long, default_value = "checkpoints", action = ArgAction::Set)]
         ckpt_dir: String,
         /// Scheduler type: linear or cosine.
-        #[arg(long, default_value = "linear", value_parser = ["linear", "cosine"])]
+        #[arg(
+            long,
+            default_value = "linear",
+            value_parser = ["linear", "cosine"],
+            action = ArgAction::Set
+        )]
         scheduler: String,
         /// Checkpoint every N steps (0 = disabled).
-        #[arg(long, default_value_t = 0)]
+        #[arg(long, default_value_t = 0, action = ArgAction::Set)]
         ckpt_every_steps: usize,
         /// Checkpoint every N epochs.
-        #[arg(long, default_value_t = 1)]
+        #[arg(long, default_value_t = 1, action = ArgAction::Set)]
         ckpt_every_epochs: usize,
         /// Validation objectness threshold for metric matching.
-        #[arg(long, default_value_t = 0.3)]
+        #[arg(long, default_value_t = 0.3, action = ArgAction::Set)]
         val_obj_thresh: f32,
         /// Validation IoU threshold for metric matching/NMS.
-        #[arg(long, default_value_t = 0.5)]
+        #[arg(long, default_value_t = 0.5, action = ArgAction::Set)]
         val_iou_thresh: f32,
         /// Optional comma-separated list of additional IoU thresholds for evaluation (e.g., "0.5,0.75").
         #[arg(long)]
         val_iou_sweep: Option<String>,
         /// Drop the last partial training batch (may help BN stability); val never drops.
-        #[arg(long, default_value_t = false)]
+        #[arg(long, default_value_t = false, action = ArgAction::Set)]
         drop_last: bool,
         /// Early stop after N epochs without val IoU improvement (0 disables).
         #[arg(long, default_value_t = 0)]
