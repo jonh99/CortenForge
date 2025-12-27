@@ -576,10 +576,16 @@ mod real {
                     );
                 }
                 let outputs = model.forward(batch.images.clone());
+                if args.trace_steps {
+                    println!("epoch {} step {}: forward pass done", epoch + 1, step);
+                }
                 let (obj_logits, box_logits) =
                     (outputs.obj_logits.clone(), outputs.box_logits.clone());
                 let (t_obj, t_boxes, t_mask) =
                     build_targets(&batch, obj_logits.dims()[2], obj_logits.dims()[3], &device)?;
+                if args.trace_steps {
+                    println!("epoch {} step {}: targets built", epoch + 1, step);
+                }
                 if args.debug_batch && !debug_printed {
                     debug_printed = true;
                     print_debug_batch(&obj_logits, &box_logits, &t_obj, &t_boxes, &t_mask)?;
@@ -593,6 +599,9 @@ mod real {
                     },
                     &device,
                 );
+                if args.trace_steps {
+                    println!("epoch {} step {}: loss computed", epoch + 1, step);
+                }
                 let loss_scalar = loss
                     .to_data()
                     .to_vec::<f32>()
@@ -602,6 +611,9 @@ mod real {
                     .unwrap_or(0.0);
                 let mean_iou_batch = mean_iou_host(&box_logits, &t_boxes, &t_obj);
                 let grads = loss.backward();
+                if args.trace_steps {
+                    println!("epoch {} step {}: backward pass done", epoch + 1, step);
+                }
                 let grads = GradientsParams::from_grads(grads, &model);
                 let lr = scheduler_step(&mut scheduler);
                 model = optim.step(lr, model, grads);
