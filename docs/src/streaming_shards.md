@@ -15,6 +15,33 @@ We support three ways to load tensor warehouse shards. Pick based on memory/IO t
 - Env/CLI: `WAREHOUSE_STORE={memory|mmap|stream}`; `WAREHOUSE_PREFETCH=<N>` for streaming prefetch depth (default 2).
 - Training logs the selected mode; streaming logs prefetch depth and shard/sample counts.
 
+## Command examples
+Assuming a warehouse manifest at `artifacts/tensor_warehouse/v<version>/manifest.json`:
+- **Env (memory, default)**:
+```bash
+TENSOR_WAREHOUSE_MANIFEST=artifacts/tensor_warehouse/v<version>/manifest.json \
+WAREHOUSE_STORE=memory \
+cargo train_hp
+```
+- **CLI flag (mmap)**:
+```bash
+TENSOR_WAREHOUSE_MANIFEST=artifacts/tensor_warehouse/v<version>/manifest.json \
+cargo run --features "burn_runtime,burn_wgpu" --bin train -- \
+  --tensor-warehouse artifacts/tensor_warehouse/v<version>/manifest.json \
+  --warehouse-store mmap \
+  --batch-size 64
+```
+- **Streaming with prefetch**:
+```bash
+TENSOR_WAREHOUSE_MANIFEST=artifacts/tensor_warehouse/v<version>/manifest.json \
+WAREHOUSE_PREFETCH=4 \
+cargo run --features "burn_runtime,burn_wgpu" --bin train -- \
+  --tensor-warehouse artifacts/tensor_warehouse/v<version>/manifest.json \
+  --warehouse-store stream \
+  --batch-size 64 \
+  --epochs 20
+```
+
 ## Validation & tests
 - Streamed backing validates shard header (magic/version/dtype/shape/offsets) like mmap.
 - Tests:
