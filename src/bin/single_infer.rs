@@ -3,8 +3,10 @@ use image::io::Reader as ImageReader;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use colon_sim::vision::{DetectorHandle, InferenceThresholds};
-use colon_sim::vision_interfaces::Frame;
+use colon_sim::common_cli::ThresholdOpts;
+use colon_sim::vision::{DefaultDetectorFactory, DetectorFactory};
+use colon_sim::vision::interfaces::Frame;
+use colon_sim::vision::overlay::{draw_rect, normalize_box};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -36,43 +38,6 @@ fn default_out_path(input: &Path) -> PathBuf {
     parent.join(format!("{stem}_boxed.png"))
 }
 
-fn draw_rect(img: &mut image::RgbaImage, bbox_norm: [f32; 4], color: image::Rgba<u8>, thickness: u32) {
-    let (w, h) = img.dimensions();
-    let clamp = |v: f32, max: u32| -> u32 { v.max(0.0).min((max as i32 - 1) as f32) as u32 };
-    let x0 = clamp(bbox_norm[0] * w as f32, w);
-    let y0 = clamp(bbox_norm[1] * h as f32, h);
-    let x1 = clamp(bbox_norm[2] * w as f32, w);
-    let y1 = clamp(bbox_norm[3] * h as f32, h);
-    if x0 >= w || y0 >= h || x1 >= w || y1 >= h {
-        return;
-    }
-    for t in 0..thickness {
-        let xx0 = x0.saturating_add(t);
-        let yy0 = y0.saturating_add(t);
-        let xx1 = x1.saturating_sub(t);
-        let yy1 = y1.saturating_sub(t);
-        if xx0 >= w || yy0 >= h || xx1 >= w || yy1 >= h || xx0 > xx1 || yy0 > yy1 {
-            continue;
-        }
-        for x in xx0..=xx1 {
-            if yy0 < h {
-                img.put_pixel(x, yy0, color);
-            }
-            if yy1 < h {
-                img.put_pixel(x, yy1, color);
-            }
-        }
-        for y in yy0..=yy1 {
-            if xx0 < w {
-                img.put_pixel(xx0, y, color);
-            }
-            if xx1 < w {
-                img.put_pixel(xx1, y, color);
-            }
-        }
-    }
-}
-
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let in_path = &args.image;
@@ -85,11 +50,10 @@ fn main() -> anyhow::Result<()> {
     let (w, h) = img.dimensions();
     let rgba = img.as_raw().clone();
 
-    let thresh = InferenceThresholds {
-        obj_thresh: args.infer_obj_thresh,
-        iou_thresh: args.infer_iou_thresh,
-    };
-    let mut handle = DetectorHandle::with_thresholds(thresh);
+    let thresh_opts = ThresholdOpts::new(args.infer_obj_thresh, args.infer_iou_thresh);
+    let thresh = thresh_opts.to_inference_thresholds();
+    let factory = DefaultDetectorFactory;
+    let mut handle = factory.build(thresh, None);
 
     let ts = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -114,7 +78,9 @@ fn main() -> anyhow::Result<()> {
             } else {
                 image::Rgba([64, 192, 255, 255])
             };
-            draw_rect(&mut boxed, *bbox, color, 2);
+            if let Some(px_box) = normalize_box(*bbox, (w, h)) {
+                draw_rect(&mut boxed, px_box, color, 2);
+            }
         }
     }
     boxed.save(&out_path)?;

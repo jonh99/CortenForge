@@ -4,6 +4,7 @@ pub mod balloon_control;
 pub mod burn_model;
 pub mod camera;
 pub mod cli;
+pub mod common_cli;
 pub mod controls;
 pub mod hud;
 pub mod polyp;
@@ -17,7 +18,6 @@ pub mod tools_postprocess {
 }
 pub mod tunnel;
 pub mod vision;
-pub mod vision_interfaces;
 
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -43,26 +43,34 @@ use probe::{StretchState, TipSense, distributed_thrust, peristaltic_drive, spawn
 use seed::{SeedState, resolve_seed};
 use tunnel::{CecumState, cecum_detection, setup_tunnel, start_detection, tunnel_expansion_system};
 use vision::{
-    AutoRecordTimer, BurnDetector, BurnInferenceState, DetectionOverlayState, DetectorHandle,
-    FrontCameraFrameBuffer, FrontCameraState, FrontCaptureReadback, InferenceThresholds,
-    RecorderConfig, RecorderMotion, RecorderState, auto_start_recording,
+    AutoRecordTimer, BurnDetector, BurnInferenceState, DetectionOverlayState, DefaultDetectorFactory,
+    DetectorFactory, FrontCameraFrameBuffer, FrontCameraState, FrontCaptureReadback,
+    InferenceThresholds, RecorderConfig, RecorderMotion, RecorderState, auto_start_recording,
     auto_stop_recording_on_cecum, capture_front_camera_frame, datagen_failsafe_recording,
     finalize_datagen_run, on_front_capture_readback, poll_burn_inference,
     record_front_camera_metadata, recorder_toggle_hotkey, schedule_burn_inference,
     setup_front_capture, threshold_hotkeys, track_front_camera_state,
 };
 
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ModeSet {
+    Common,
+    SimDatagen,
+    Inference,
+}
+
 pub fn run_app(args: crate::cli::AppArgs) {
     let polyp_seed = resolve_seed(args.seed);
     let headless = args.headless;
-    let infer_thresh = InferenceThresholds {
-        obj_thresh: args.infer_obj_thresh,
-        iou_thresh: args.infer_iou_thresh,
-    };
+    let thresh_opts: common_cli::ThresholdOpts = (&args).into();
+    let infer_thresh = thresh_opts.to_inference_thresholds();
+    let weights_opts: common_cli::WeightsOpts = (&args).into();
+    let weights_path = weights_opts.detector_weights.as_deref();
     let mut app = App::new();
 
     if args.mode == RunMode::Inference {
-        app.insert_resource(DetectorHandle::with_thresholds(infer_thresh));
+        let factory = DefaultDetectorFactory;
+        app.insert_resource(factory.build(infer_thresh, weights_path));
     }
 
     app
@@ -127,6 +135,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
         }))
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(ConditionalRapierDebug)
+        .configure_sets(Update, (ModeSet::Common, ModeSet::SimDatagen, ModeSet::Inference))
         .add_systems(
             Startup,
             (
@@ -150,11 +159,6 @@ pub fn run_app(args: crate::cli::AppArgs) {
             (
                 balloon_control_input,
                 balloon_body_update,
-                datagen_autostart,
-                data_run_toggle,
-                auto_toggle,
-                auto_inchworm,
-                balloon_marker_update,
                 camera_controller,
                 pov_toggle_system,
                 track_front_camera_state,
@@ -162,11 +166,17 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 apply_detection_votes
                     .after(polyp_detection_system)
                     .after(poll_burn_inference),
-            ),
+            )
+                .in_set(ModeSet::Common),
         )
         .add_systems(
             Update,
             (
+                datagen_autostart,
+                data_run_toggle,
+                auto_toggle,
+                auto_inchworm,
+                balloon_marker_update,
                 recorder_toggle_hotkey,
                 threshold_hotkeys,
                 auto_start_recording,
@@ -183,7 +193,8 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 polyp_removal_system
                     .after(polyp_detection_system)
                     .after(apply_detection_votes),
-            ),
+            )
+                .in_set(ModeSet::SimDatagen),
         )
         .add_systems(
             FixedUpdate,
@@ -201,7 +212,8 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 poll_burn_inference.after(schedule_burn_inference),
                 threshold_hotkeys,
                 hud::update_detection_overlay_ui.after(poll_burn_inference),
-            ),
+            )
+                .in_set(ModeSet::Inference),
         );
     }
 

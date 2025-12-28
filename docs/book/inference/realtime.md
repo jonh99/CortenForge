@@ -16,7 +16,7 @@ cargo run --bin inference_view -- \
 <summary>Notes</summary>
 
 - Requires burn features/artifacts present for your trained model (ensure the build includes `burn_wgpu` and your weights are available as expected by the app).
-- Set WGPU envs per your GPU; see `reference/wgpu_envs.md` for examples.
+- WGPU envs: see `reference/wgpu_envs.md` for env vars and examples.
 - Bounding boxes and scores render via the HUD overlay; the HUD also shows detector status, latency, and consensus.
 - `--output-root` still writes a new `run_<timestamp>` with images/labels/overlays if recording is enabled; disable recording via HUD hotkeys if you only want live inference.
 - Use `--headless true` for offscreen runs; `--max-frames` to auto-stop recording; `--seed` for reproducible scenes.

@@ -17,7 +17,7 @@ use crate::cli::RunMode;
 use crate::polyp::PolypDetectionVotes;
 use crate::polyp::PolypTelemetry;
 use crate::tunnel::CecumState;
-use crate::vision_interfaces::{self, DetectionResult, Frame, FrameRecord, Label, Recorder};
+use crate::vision::interfaces::{self, DetectionResult, Frame, FrameRecord, Label, Recorder};
 
 #[cfg(feature = "burn_runtime")]
 use crate::burn_model::{TinyDet, TinyDetConfig, nms};
@@ -102,7 +102,7 @@ pub struct BurnDetectionResult {
 }
 
 struct HeuristicDetector;
-impl vision_interfaces::Detector for HeuristicDetector {
+impl interfaces::Detector for HeuristicDetector {
     fn detect(&mut self, frame: &Frame) -> DetectionResult {
         DetectionResult {
             frame_id: frame.id,
@@ -133,23 +133,28 @@ impl Default for BurnInferenceState {
 
 #[derive(Resource)]
 pub struct DetectorHandle {
-    pub detector: Box<dyn vision_interfaces::Detector + Send + Sync>,
+    pub detector: Box<dyn interfaces::Detector + Send + Sync>,
     pub kind: DetectorKind,
 }
 
-impl DetectorHandle {
-    pub fn with_thresholds(thresh: InferenceThresholds) -> Self {
-        let _ = thresh;
+pub trait DetectorFactory: Send + Sync {
+    fn build(&self, thresh: InferenceThresholds, weights: Option<&Path>) -> DetectorHandle;
+}
+
+pub struct DefaultDetectorFactory;
+
+impl DetectorFactory for DefaultDetectorFactory {
+    fn build(&self, _thresh: InferenceThresholds, _weights: Option<&Path>) -> DetectorHandle {
         #[cfg(feature = "burn_runtime")]
         {
-            if let Some(det) = BurnTinyDetDetector::from_default_or_fallback(thresh) {
-                return Self {
+            if let Some(det) = BurnTinyDetDetector::from_path_or_default(_thresh, _weights) {
+                return DetectorHandle {
                     detector: Box::new(det),
                     kind: DetectorKind::Burn,
                 };
             }
         }
-        Self {
+        DetectorHandle {
             detector: Box::new(HeuristicDetector),
             kind: DetectorKind::Heuristic,
         }
@@ -179,15 +184,20 @@ impl BurnTinyDetDetector {
         })
     }
 
-    fn from_default_or_fallback(thresh: InferenceThresholds) -> Option<Self> {
-        let default_path = Path::new("checkpoints").join("tinydet.bin");
-        if default_path.exists() {
-            match Self::load_from_checkpoint(&default_path, thresh) {
+    fn from_path_or_default(thresh: InferenceThresholds, weights: Option<&Path>) -> Option<Self> {
+        let candidate = weights
+            .map(|p| p.to_path_buf())
+            .or_else(|| Some(Path::new("checkpoints").join("tinydet.bin")));
+        let Some(path) = candidate else {
+            return None;
+        };
+        if path.exists() {
+            match Self::load_from_checkpoint(&path, thresh) {
                 Ok(det) => return Some(det),
                 Err(err) => {
                     warn!(
                         "Burn checkpoint load failed at {:?}: {:?}. Falling back to heuristic.",
-                        default_path, err
+                        path, err
                     );
                     return None;
                 }
@@ -195,7 +205,7 @@ impl BurnTinyDetDetector {
         }
         warn!(
             "Burn checkpoint {:?} not found; using heuristic detector instead.",
-            default_path
+            path
         );
         None
     }
@@ -219,7 +229,7 @@ impl BurnTinyDetDetector {
 }
 
 #[cfg(feature = "burn_runtime")]
-impl vision_interfaces::Detector for BurnTinyDetDetector {
+impl interfaces::Detector for BurnTinyDetDetector {
     fn detect(&mut self, frame: &Frame) -> DetectionResult {
         let rgba = match &frame.rgba {
             Some(buf) => buf,

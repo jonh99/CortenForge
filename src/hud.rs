@@ -6,6 +6,7 @@ use bevy::ui::{
 
 use crate::controls::ControlParams;
 use crate::polyp::PolypTelemetry;
+use crate::vision::overlay::normalize_box;
 use crate::probe::TipSense;
 use crate::vision::{
     BurnInferenceState, DetectionOverlayState, DetectorHandle, FrontCameraState, RecorderState,
@@ -203,16 +204,23 @@ pub fn update_detection_overlay_ui(
             .collect::<Vec<_>>();
         boxes.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         for (b, score) in boxes {
-            let w = (b[2] - b[0]).clamp(0.0, 1.0) * 100.0;
-            let h = (b[3] - b[1]).clamp(0.0, 1.0) * 100.0;
+            let Some([x0, y0, x1, y1]) = normalize_box(*b, overlay.size) else {
+                continue;
+            };
+            let w = ((x1.saturating_sub(x0)) as f32).clamp(0.0, overlay.size.0 as f32)
+                / overlay.size.0 as f32
+                * 100.0;
+            let h = ((y1.saturating_sub(y0)) as f32).clamp(0.0, overlay.size.1 as f32)
+                / overlay.size.1 as f32
+                * 100.0;
             let color = Color::srgba(0.1, 0.8, 1.0, 0.9 * score.clamp(0.25, 1.0));
             commands.entity(root).with_children(|parent| {
                 let _ = parent
                     .spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Percent((b[0] * 100.0).clamp(0.0, 100.0)),
-                            top: Val::Percent((b[1] * 100.0).clamp(0.0, 100.0)),
+                            left: Val::Percent((x0 as f32 / overlay.size.0 as f32) * 100.0),
+                            top: Val::Percent((y0 as f32 / overlay.size.1 as f32) * 100.0),
                             width: Val::Percent(w),
                             height: Val::Percent(h),
                             border: UiRect::all(Val::Px(1.0)),

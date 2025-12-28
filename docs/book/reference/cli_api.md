@@ -37,6 +37,17 @@
   - `--status-file <path>`
   - Other model/task-specific flags (list here once finalized).
 
+## inference_view
+- Purpose: run the trained detector live and show boxes.
+- Key flags:
+  - `--output-root <path>` (recording output, if enabled)
+  - `--infer-obj-thresh <float>` (default `0.3`)
+  - `--infer-iou-thresh <float>` (default `0.5`)
+  - `--detector-weights <path>` (optional; Burn checkpoint; defaults to `checkpoints/tinydet.bin` if unset)
+  - `--headless <bool>` (hide window)
+  - `--max-frames <N>` (optional cap)
+  - `--seed <u64>` (optional)
+
 ## single_infer
 - Purpose: run the detector on a single image and emit a boxed PNG.
 - Key flags:

@@ -2,29 +2,7 @@
 
 ## Command matrix (Bash / PowerShell)
 
-**Bash (default)**:
-```bash
-CODE_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "") \
-cargo run --bin warehouse_etl -- \
-  --input-root assets/datasets/captures_filtered \
-  --output-root artifacts/tensor_warehouse \
-  --target-size 384x384 \
-  --resize-mode letterbox \
-  --max-boxes 16 \
-  --shard-samples 1024
-```
-
-**PowerShell**:
-```pwsh
-$env:CODE_VERSION = (git rev-parse --short HEAD 2>$null)
-cargo run --bin warehouse_etl -- `
-  --input-root assets/datasets/captures_filtered `
-  --output-root artifacts/tensor_warehouse `
-  --target-size 384x384 `
-  --resize-mode letterbox `
-  --max-boxes 16 `
-  --shard-samples 1024
-```
+- See `reference/commands.md` for Bash/PowerShell snippets.
 
 ## Env toggles
 - `WAREHOUSE_CLEAR=1` — delete the computed version dir before writing.

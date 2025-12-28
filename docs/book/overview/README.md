@@ -19,26 +19,8 @@ This page orients newcomers to the full data/training pipeline and gives a 10-mi
 Follow these steps end-to-end; swap paths to match your machine.
 
 1) Ingest or prepare filtered data roots (see ingestion chapter for capture/prune commands).  
-2) Build the warehouse:  
-```bash
-CODE_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "") \
-cargo run --bin warehouse_etl -- \
-  --input-root assets/datasets/captures_filtered \
-  --output-root artifacts/tensor_warehouse \
-  --target-size 384x384 \
-  --resize-mode letterbox \
-  --max-boxes 16 \
-  --shard-samples 1024
-```
-3) Train from the manifest:  
-```bash
-cargo train_hp -- \
-  --tensor-warehouse artifacts/tensor_warehouse/v<version>/manifest.json \
-  --batch-size 64 \
-  --epochs 20 \
-  --status-file logs/train_status.json
-```
-Set WGPU env vars if needed (see training section).  
+2) Build the warehouse (see `reference/commands.md` for full snippet).
+3) Train from the manifest (see `reference/commands.md` for full snippet). Set WGPU env vars if needed (see `reference/wgpu_envs.md`).
 4) Inspect outputs: logs, checkpoints, and optional Parquet export:  
 ```bash
 cargo run --bin warehouse_export -- \

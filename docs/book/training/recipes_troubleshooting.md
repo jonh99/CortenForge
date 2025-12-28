@@ -1,20 +1,7 @@
 # Recipes, examples, and troubleshooting
 
 ## Known-good example run
-```bash
-TENSOR_WAREHOUSE_MANIFEST=artifacts/tensor_warehouse/v<version>/manifest.json \
-WGPU_POWER_PREF=high-performance \
-WGPU_BACKEND=vulkan \
-WGPU_ADAPTER_NAME=AMD \
-RUST_LOG=info,wgpu_core=info \
-cargo train_hp -- \
-  --tensor-warehouse artifacts/tensor_warehouse/v<version>/manifest.json \
-  --warehouse-store memory \
-  --batch-size 64 \
-  --epochs 20 \
-  --log-every 10 \
-  --status-file logs/train_status.json
-```
+See `reference/commands.md` for a baseline training invocation.
 
 ## Common flag sets
 - Fast smoke test: `--batch-size 8 --epochs 1 --log-every 1`

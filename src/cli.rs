@@ -39,6 +39,9 @@ pub struct AppArgs {
     /// Optional output root for pruned runs (defaults to "<output_root>_filtered").
     #[arg(long)]
     pub prune_output_root: Option<PathBuf>,
+    /// Optional path to detector weights (Burn checkpoint).
+    #[arg(long)]
+    pub detector_weights: Option<PathBuf>,
 }
 
 #[derive(Resource, ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]

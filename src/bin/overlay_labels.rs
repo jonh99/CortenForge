@@ -2,8 +2,10 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use image::{Rgba, RgbaImage};
+use image::Rgba;
 use serde::Deserialize;
+
+use colon_sim::vision::overlay::{draw_rect, normalize_box};
 
 #[derive(Deserialize)]
 struct PolypLabel {
@@ -21,43 +23,6 @@ struct CaptureMetadata {
     #[allow(dead_code)]
     polyp_seed: Option<u64>,
     polyp_labels: Vec<PolypLabel>,
-}
-
-fn draw_rect(img: &mut RgbaImage, bbox: [f32; 4], color: Rgba<u8>, thickness: u32) {
-    let (w, h) = img.dimensions();
-    let clamp = |v: f32, max: u32| -> u32 { v.max(0.0).min((max as i32 - 1) as f32) as u32 };
-    let x0 = clamp(bbox[0], w);
-    let y0 = clamp(bbox[1], h);
-    let x1 = clamp(bbox[2], w);
-    let y1 = clamp(bbox[3], h);
-    if x0 >= w || y0 >= h || x1 >= w || y1 >= h {
-        return;
-    }
-    for t in 0..thickness {
-        let xx0 = x0 + t;
-        let yy0 = y0 + t;
-        let xx1 = x1.saturating_sub(t);
-        let yy1 = y1.saturating_sub(t);
-        if xx0 >= w || yy0 >= h || xx1 >= w || yy1 >= h || xx0 > xx1 || yy0 > yy1 {
-            continue;
-        }
-        for x in xx0..=xx1 {
-            if yy0 < h {
-                img.put_pixel(x, yy0, color);
-            }
-            if yy1 < h {
-                img.put_pixel(x, yy1, color);
-            }
-        }
-        for y in yy0..=yy1 {
-            if xx0 < w {
-                img.put_pixel(xx0, y, color);
-            }
-            if xx1 < w {
-                img.put_pixel(xx1, y, color);
-            }
-        }
-    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -92,7 +57,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let mut img = image::open(&img_path)?.into_rgba8();
         for label in meta.polyp_labels.iter().filter_map(|l| l.bbox_px) {
-            draw_rect(&mut img, label, Rgba([255, 64, 192, 255]), 2);
+            let color = Rgba([255, 64, 192, 255]);
+            let dims = img.dimensions();
+            if let Some(px_box) = normalize_box(
+                [
+                    label[0] / dims.0 as f32,
+                    label[1] / dims.1 as f32,
+                    label[2] / dims.0 as f32,
+                    label[3] / dims.1 as f32,
+                ],
+                dims,
+            ) {
+                draw_rect(&mut img, px_box, color, 2);
+            }
         }
         let filename = Path::new(&meta.image)
             .file_name()

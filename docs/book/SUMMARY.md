@@ -32,6 +32,7 @@
 - [Reference](reference/README.md)
   - [CLI/API reference for tools](reference/cli_api.md)
   - [WGPU env quick reference](reference/wgpu_envs.md)
+  - [Common commands (ETL + training)](reference/commands.md)
   - [Env var index with defaults](reference/env_index.md)
   - [Data schema tables and test coverage map](reference/schema_tests.md)
 - [FAQ / Troubleshooting](faq/README.md)

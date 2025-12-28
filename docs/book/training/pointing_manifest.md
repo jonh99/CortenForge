@@ -2,23 +2,7 @@
 
 Set the manifest path via env or CLI. Use the versioned manifest produced by ETL.
 
-## Env-based
-```bash
-TENSOR_WAREHOUSE_MANIFEST=artifacts/tensor_warehouse/v<version>/manifest.json \
-cargo train_hp -- \
-  --batch-size 64 \
-  --epochs 20 \
-  --status-file logs/train_status.json
-```
-
-## CLI flag
-```bash
-cargo train_hp -- \
-  --tensor-warehouse artifacts/tensor_warehouse/v<version>/manifest.json \
-  --batch-size 64 \
-  --epochs 20 \
-  --warehouse-store memory
-```
+See `reference/commands.md` for common training commands.
 
 ## Batch/epoch math
 - Epoch size = `manifest.sample_count / batch_size` (rounded up). Training uses manifest counts to compute progress.
