@@ -31,9 +31,9 @@ https://github.com/user-attachments/assets/cbf42edf-c61e-476c-b1e8-549b5f5b7580
 - CLI tools are in the `tools/` crate (overlay_labels, prune_empty, warehouse_*; feature-gated: tui, datagen_scheduler)
 
 ## Running
-```bash
-cargo run --release
-```
+- Interactive sim: `cargo run --bin sim_view --release`
+- Inference view: `cargo run --bin inference_view --release`
+- Tools: `cargo run -p colon_sim_tools --bin <tool> -- --help`
 
 ## Capturing + overlays
 - Toggle to probe camera: press `C` until HUD shows `VISION :: cam=ON`.
