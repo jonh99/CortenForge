@@ -6,7 +6,7 @@
   - Tools moved into `colon_sim_tools`; bins import shared helpers via `colon_sim::cli` and `colon_sim_tools::services`.
   - Recorder defaults to `JsonRecorder`; apps supply metadata/world-state hooks and can inject sinks.
   - Bins for the reference app live under `apps/colon_sim/bin`; minimal demo at `apps/hello_substrate`.
-- Potential rebrand: substrate as “Pipelinea”; app crates consume it.
+- Branding: substrate is “ForgeLoop”; app crates consume it.
 - See `MIGRATION.md` for more detail and contributor guidance.
 - Porting a feature to the new layout:
   1) Decide if it belongs in substrate (generic) or app (domain-specific).

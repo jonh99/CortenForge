@@ -1,6 +1,6 @@
 # Architecture: substrate + apps
 
-Substrate (Pipelinea) vs. apps:
+Substrate (ForgeLoop) vs. apps:
 - Substrate crates: `sim_core`, `vision_core`, `vision_runtime`, `data_contracts`, `capture_utils`, `models`, `training`, `inference`, `colon_sim_tools`.
 - Apps: `apps/colon_sim` (reference world) and `apps/hello_substrate` (minimal demo).
 - Root crate is glue-only: `src/cli/*`, `run_app` wires `SimConfig` + core plugins + app hooks.

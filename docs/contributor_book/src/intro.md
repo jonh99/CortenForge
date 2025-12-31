@@ -1,6 +1,6 @@
 # Introduction
 
-This book is for contributors to the Pipelinea substrate. It covers the architecture, core crates, hooks/extension points, app patterns, tools, testing, and migration/roadmap.
+This book is for contributors to the ForgeLoop substrate. It covers the architecture, core crates, hooks/extension points, app patterns, tools, testing, and migration/roadmap.
 
 Build this book:
 ```bash

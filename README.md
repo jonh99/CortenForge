@@ -16,8 +16,8 @@ No attempt is made to reproduce proprietary hardware, clinical configurations, o
 **Video of auto probe in action**
 https://github.com/user-attachments/assets/cbf42edf-c61e-476c-b1e8-549b5f5b7580
 
-## Substrate vs. app (early “Pipelinea” branding)
-We have a reusable substrate (candidate name “Pipelinea”) made of `sim_core`, `vision_core`/`vision_runtime`, `data_contracts`, `models`, `training`, `inference`, `capture_utils`, and `colon_sim_tools`. Apps build on it:
+## Substrate vs. app (ForgeLoop)
+We have a reusable substrate (ForgeLoop) made of `sim_core`, `vision_core`/`vision_runtime`, `data_contracts`, `models`, `training`, `inference`, `capture_utils`, and `colon_sim_tools`. Apps build on it:
 - `apps/colon_sim`: reference domain app (bins below launch this).
 - `apps/hello_substrate`: minimal demo showing a custom plugin on the substrate with no colon-specific systems.
 Root crate is glue-only (`src/cli/*`, `run_app`); domain systems stay in the app crates.

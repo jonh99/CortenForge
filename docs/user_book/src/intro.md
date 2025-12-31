@@ -1,6 +1,6 @@
 # Introduction
 
-Welcome to the Pipelinea user guide. This book shows how to use the substrate (sim_core, vision_core/runtime, data_contracts, models, training, inference, capture_utils, colon_sim_tools) with `colon_sim` as the worked example.
+Welcome to the ForgeLoop user guide. This book shows how to use the substrate (sim_core, vision_core/runtime, data_contracts, models, training, inference, capture_utils, colon_sim_tools) with `colon_sim` as the worked example.
 
 Build this book:
 ```bash

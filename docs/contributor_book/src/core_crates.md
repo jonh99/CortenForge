@@ -1,4 +1,4 @@
-# Core crates (Pipelinea substrate)
+# Core crates (ForgeLoop substrate)
 
 - `sim_core`: Bevy plumbing (ModeSet/SimConfig/SimPlugin/SimRuntimePlugin), hooks for controls/autopilot (`SimHooks`, `ControlsHook`, `AutopilotHook`), recorder metadata/world-state types, recorder config/state, probe types, runtime helper. Detector wiring intentionally omitted.
 - Key files: `sim_core/src/lib.rs` (SimPlugin/build_app), `hooks.rs` (SimHooks), `recorder_meta.rs` (provider/world state), `recorder_types.rs` (config/state), `probe_types.rs` (shared probe structs).
