@@ -20,14 +20,33 @@ jobs:
           wget https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz
           tar -xzf mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz
           sudo mv mdbook /usr/local/bin/
-      - name: Build book
-        run: cd docs && mdbook build
+      - name: Build books
+        run: |
+          mdbook build docs/user_book
+          mdbook build docs/contributor_book
+          mkdir -p docs/site_build
+          cp -r docs/user_book/book docs/site_build/user
+          cp -r docs/contributor_book/book docs/site_build/contributor
+          # Simple index to link both books
+          cat > docs/site_build/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="UTF-8"><title>Pipelinea Docs</title></head>
+          <body>
+          <h1>Pipelinea Documentation</h1>
+          <ul>
+            <li><a href="user/">User Guide</a></li>
+            <li><a href="contributor/">Contributor Guide</a></li>
+          </ul>
+          </body>
+          </html>
+          EOF
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: docs/book_build
+          publish_dir: docs/site_build
           force_orphan: true
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com

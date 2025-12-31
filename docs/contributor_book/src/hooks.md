@@ -1,0 +1,24 @@
+# Hooks / extension points
+
+- `SimHooks`: provides optional control/autopilot hooks (`ControlsHook`, `AutopilotHook`) for app crates to register their systems without touching core internals.
+- Recorder hooks:
+  - `RecorderMetaProvider` / `RecorderMetadataProvider`: app supplies recorder metadata (e.g., seed).
+  - `RecorderWorldState`: app updates world state (e.g., head_z, stop flag).
+  - Sinks are pluggable (`RecorderSink`); default `JsonRecorder` comes from `capture_utils`; apps can inject custom sinks.
+- Recorder wiring lives in substrate; apps typically:
+  - Provide a system to update `RecorderWorldState`.
+  - Implement `RecorderMetaProvider` for custom metadata (e.g., patient/scene id).
+  - Optionally replace/add sinks if they want to write alternate formats.
+- Detectors:
+  - Implement `vision_core::Detector`/`BurnDetectorFactory` outside core; `inference` provides a Burn + heuristic factory using `models`.
+- Mode gating:
+  - Use `ModeSet`/`SimRunMode` to gate systems (SimDatagen vs. Inference).
+- Guidance:
+  - Keep hooks narrow; avoid exposing domain types from core. Apps own domain systems and register via hooks/plugins.
+- Example recorder setup (app side):
+  - Add a resource/system that updates `RecorderWorldState { head_z, stop: bool }`.
+  - Implement `RecorderMetaProvider` and insert it so recorder picks up your metadata.
+  - (Optional) Inject a sink: `app.insert_resource(MySink::new(run_dir))` implementing `RecorderSink`.
+ - Example detector hook usage:
+   - Implement `BurnDetectorFactory` (or use `inference::InferenceFactory`) in your app if you need a custom model.
+   - In inference mode, insert the factory/detector into the app and let `vision_runtime::InferencePlugin` handle polling/overlay.

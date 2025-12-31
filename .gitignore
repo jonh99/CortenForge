@@ -4,11 +4,12 @@
 .DS_Store
 .vscode/
 .idea/
-checklist.md
-docs/burn_architecture.md
-docs/ml_refactor_plan.md
 docs/book_build/
+docs/user_book/book/
+docs/contributor_book/book/
+docs/site_build/
 assets/datasets/
 media/
 ml_pipeline.md
 todo.md
+todo/
