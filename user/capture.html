@@ -1,0 +1,296 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Capture - CortenForge User Guide</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="happy_path.html"><strong aria-hidden="true">2.</strong> Happy path</a></li><li class="chapter-item expanded "><a href="capture.html" class="active"><strong aria-hidden="true">3.</strong> Capture</a></li><li class="chapter-item expanded "><a href="etl.html"><strong aria-hidden="true">4.</strong> ETL / Warehouse</a></li><li class="chapter-item expanded "><a href="training.html"><strong aria-hidden="true">5.</strong> Training</a></li><li class="chapter-item expanded "><a href="inference.html"><strong aria-hidden="true">6.</strong> Inference</a></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">7.</strong> Tools</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQ / Troubleshooting</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">CortenForge User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="capture"><a class="header" href="#capture">Capture</a></h1>
+<p>Two primary ways to capture data:</p>
+<h2 id="interactive-sim_view"><a class="header" href="#interactive-sim_view">Interactive (sim_view)</a></h2>
+<p>Run the sim, drive manually, and record:</p>
+<pre><code class="language-bash">cargo run --bin sim_view
+</code></pre>
+<ul>
+<li>Controls (HUD also shows them):
+<ul>
+<li><code>WASD</code> + mouse: move/fly. <code>Shift/Ctrl</code>: speed up/down.</li>
+<li><code>C</code>: cycle cameras (first-person probe cam shows ground-truth boxes).</li>
+<li><code>P</code>: toggle autopilot/probe drive.</li>
+<li><code>L</code>: start/stop recording; HUD lights up while recording.</li>
+<li><code>H</code>: toggle HUD; <code>Esc</code> quits.</li>
+</ul>
+</li>
+<li>Outputs: <code>assets/datasets/captures/run_&lt;timestamp&gt;/</code> with <code>run_manifest.json</code>, <code>images/</code>, <code>labels/</code>, <code>overlays/</code> (if you render them).</li>
+<li>Data run shortcut: <code>O</code> enables autopilot, switches to probe POV, and auto-starts/stops recording at the tunnel end.</li>
+</ul>
+<h2 id="headless-wrapper-datagen"><a class="header" href="#headless-wrapper-datagen">Headless wrapper (datagen)</a></h2>
+<p>Run headless capture with defaults:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin datagen
+</code></pre>
+<p>This creates a new <code>run_&lt;timestamp&gt;</code> under <code>assets/datasets/captures/</code>.</p>
+<h3 id="release-builds-faster"><a class="header" href="#release-builds-faster">Release builds (faster)</a></h3>
+<p>Use optimized binaries when you want max throughput or smooth playback:</p>
+<pre><code class="language-bash">cargo run --release --bin sim_view
+cargo run -p colon_sim_tools --release --bin datagen
+</code></pre>
+<p>How it’s wired: <code>datagen</code> is a thin wrapper that spawns <code>sim_view</code> with the right args. It looks for <code>sim_view</code> in the same <code>target/&lt;profile&gt;/</code> directory as itself; build <code>sim_view</code> once in that profile (<code>cargo build --release --bin sim_view</code>) so the wrapper can find it. If you prefer debug, build debug <code>sim_view</code> (<code>cargo build --bin sim_view</code>) and run the debug <code>datagen</code>, or put any <code>sim_view</code> on your <code>PATH</code>.</p>
+<h2 id="run-layout"><a class="header" href="#run-layout">Run layout</a></h2>
+<ul>
+<li><code>run_manifest.json</code>: metadata for the run (seed, timing, camera, version).</li>
+<li><code>images/</code>: frames.</li>
+<li><code>labels/</code>: <code>frame_XXXXX.json</code> (labels, polyp_seed, bbox_norm/bbox_px). Each JSON holds normalized and pixel boxes plus optional metadata (e.g., polyp seed).</li>
+<li><code>overlays/</code>: optional rendered boxes (see below).</li>
+<li>Common manifest fields: run id, timestamp, seed, camera params, version, capture settings (resize/letterbox), checksum of frames.</li>
+<li>Screenshot marker: HUD with REC on and box overlays visible.</li>
+<li>Minimal manifest excerpt (example):</li>
+</ul>
+<pre><code class="language-json">{
+  "run_id": "run_2024-05-01T12-00-00Z",
+  "seed": 1234,
+  "camera": { "fov": 90, "mode": "probe_fp" },
+  "version": "v1",
+  "frames": 240,
+  "resize": { "target": [384, 384], "letterbox": true }
+}
+</code></pre>
+<h2 id="overlays-and-pruning"><a class="header" href="#overlays-and-pruning">Overlays and pruning</a></h2>
+<ul>
+<li>Render boxes onto PNGs:</li>
+</ul>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin overlay_labels -- assets/datasets/captures/run_&lt;timestamp&gt;
+</code></pre>
+<ul>
+<li>Prune empty-label frames (recommended before ETL):</li>
+</ul>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin prune_empty -- --input assets/datasets/captures --output assets/datasets/captures_filtered
+</code></pre>
+<ul>
+<li>If you re-run overlays after pruning, point to the pruned root to keep paths consistent.</li>
+</ul>
+<p>Quality tips:</p>
+<ul>
+<li>Keep HUD on while recording so you can confirm camera/record status.</li>
+<li>If you want deterministic runs, pass <code>--seed &lt;n&gt;</code> to <code>sim_view</code> or use headless <code>datagen</code> (defaults to headless + auto-run dir).</li>
+<li>Verify run completeness by checking <code>frames</code> count in <code>run_manifest.json</code> and matching <code>images/</code> + <code>labels/</code> counts.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="happy_path.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="etl.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="happy_path.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="etl.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

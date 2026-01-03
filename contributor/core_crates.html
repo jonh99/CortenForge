@@ -1,0 +1,320 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Core crates - CortenForge Contributor Guide</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">1.</strong> Overview</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">1.2.</strong> Architecture</a></li></ol></li><li class="chapter-item expanded "><a href="core_crates.html" class="active"><strong aria-hidden="true">2.</strong> Core crates</a></li><li class="chapter-item expanded "><a href="hooks.html"><strong aria-hidden="true">3.</strong> Hooks / extension points</a></li><li class="chapter-item expanded "><a href="publishing.html"><strong aria-hidden="true">4.</strong> Publishing crates</a></li><li class="chapter-item expanded "><a href="apps_index.html"><strong aria-hidden="true">5.</strong> Apps</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apps.html"><strong aria-hidden="true">5.1.</strong> App patterns</a></li></ol></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">6.</strong> Tools crate</a></li><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">7.</strong> Testing</a></li><li class="chapter-item expanded "><a href="ci.html"><strong aria-hidden="true">8.</strong> CI</a></li><li class="chapter-item expanded "><a href="roadmap.html"><strong aria-hidden="true">9.</strong> Roadmap</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">9.1.</strong> Migration / roadmap</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">CortenForge Contributor Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="core-crates-cortenforge-substrate"><a class="header" href="#core-crates-cortenforge-substrate">Core crates (CortenForge substrate)</a></h1>
+<p>What lives in each shared crate, how they interact, and where to extend.</p>
+<h2 id="sim_core"><a class="header" href="#sim_core">sim_core</a></h2>
+<ul>
+<li>Purpose: Bevy scaffolding (app builder, mode sets, config), hooks for controls/autopilot, recorder types. Detector wiring is intentionally absent here.</li>
+<li>Key types:
+<ul>
+<li><code>SimConfig</code> / <code>SimRunMode</code> / <code>ModeSet</code>.</li>
+<li><code>SimPlugin</code> (registers config + sets) and <code>SimRuntimePlugin</code> (runtime systems).</li>
+<li><code>SimHooks</code>, <code>ControlsHook</code>, <code>AutopilotHook</code> (app-supplied callbacks).</li>
+<li>Recorder: <code>RecorderConfig</code>, <code>RecorderState</code>, <code>RecorderMotion</code>, <code>RecorderWorldState</code>, <code>RecorderMetaProvider</code>.</li>
+</ul>
+</li>
+<li>Flow:
+<ol>
+<li><code>build_app</code> seeds Bevy with DefaultPlugins + Rapier + mode sets.</li>
+<li>Apps inject hooks/resources (controls, autopilot, recorder meta/world state).</li>
+<li>Recorder sink defaults to JSON (from capture_utils) but can be replaced.</li>
+</ol>
+</li>
+<li>Extend: implement hooks in your app crate; add systems to the relevant sets; supply recorder meta/world updates and custom sinks.</li>
+</ul>
+<h2 id="vision_core"><a class="header" href="#vision_core">vision_core</a></h2>
+<ul>
+<li>Purpose: detector/capture data model and overlay math; no Bevy dependency.</li>
+<li>Key types: <code>Frame</code>, <code>FrameRecord</code>, <code>DetectionResult</code>, <code>Label</code>, <code>Recorder</code>, <code>Detector</code>, <code>CaptureLimit</code>, <code>draw_rect</code>/overlay helpers.</li>
+<li>Extend: implement <code>Detector</code>/<code>Recorder</code>; reuse overlay helpers; keep this crate free of engine/runtime concerns.</li>
+</ul>
+<h2 id="vision_runtime"><a class="header" href="#vision_runtime">vision_runtime</a></h2>
+<ul>
+<li>Purpose: Bevy plugins for capture and inference built on vision_core.</li>
+<li>Capture pipeline:
+<ul>
+<li><code>CapturePlugin</code> sets up render target + GPU readback resources (<code>FrontCaptureTarget</code>, <code>FrontCaptureReadback</code>, camera tracking).</li>
+<li>Systems capture frames → <code>FrameRecord</code> → recorder sink; gated by <code>SimRunMode</code>.</li>
+</ul>
+</li>
+<li>Inference pipeline:
+<ul>
+<li><code>InferencePlugin</code> holds <code>DetectorHandle</code> (Burn or heuristic), thresholds, overlay state.</li>
+<li>Schedules detector tasks on captured frames; updates overlay UI state; gated to inference mode.</li>
+</ul>
+</li>
+<li>Extend: swap detector handle creation (via <code>inference</code> factory), adjust capture target sizing, or add new observers/overlays.</li>
+</ul>
+<h2 id="data_contracts"><a class="header" href="#data_contracts">data_contracts</a></h2>
+<ul>
+<li>Purpose: serde/validation schemas for captures, manifests, shards.</li>
+<li>Key schemas: run manifest (id, seed, camera, resize/letterbox, frame count, checksum), frame label (bbox_norm/bbox_px/class/metadata), warehouse shard/manifest.</li>
+<li>Extend: add fields as needed; keep validation strict (bbox ranges, required fields).</li>
+</ul>
+<h2 id="capture_utils"><a class="header" href="#capture_utils">capture_utils</a></h2>
+<ul>
+<li>Purpose: recorder sinks and capture helpers.</li>
+<li>Contents: default <code>JsonRecorder</code> sink, overlay and prune helpers used by tools and tests.</li>
+<li>Extend: add sinks (e.g., custom DB writer) while preserving schema compatibility for ETL.</li>
+</ul>
+<h2 id="models"><a class="header" href="#models">models</a></h2>
+<ul>
+<li>Purpose: Burn model definitions/configs (TinyDet, BigDet).</li>
+<li>Extend: add model variants/configs; keep domain logic out.</li>
+</ul>
+<h2 id="training"><a class="header" href="#training">training</a></h2>
+<ul>
+<li>Purpose: training/eval CLI and pipeline on top of warehouse manifests.</li>
+<li>Contents: dataset loader (manifest → tensors), collate, loss/matching, optimizer/checkpoint I/O; CLI (<code>train.rs</code>, <code>eval.rs</code>) drives <code>run_train</code>.</li>
+<li>Extend: new losses, augmentations, schedulers; keep CLI flags in sync.</li>
+</ul>
+<h2 id="inference"><a class="header" href="#inference">inference</a></h2>
+<ul>
+<li>Purpose: detector factory that loads checkpoints (via <code>models</code>) and returns a <code>Detector</code> (Burn-backed) or a heuristic fallback when weights are absent.</li>
+<li>Extend: add backends or selection logic; keep the interface consistent for runtime/tools.</li>
+</ul>
+<h2 id="colon_sim_tools"><a class="header" href="#colon_sim_tools">colon_sim_tools</a></h2>
+<ul>
+<li>Purpose: CLI utilities: overlay/prune, warehouse_etl/export/cmd, single_infer, tui, datagen_scheduler, helper binaries.</li>
+<li>Feature flags: <code>tui</code>, <code>scheduler</code>, <code>gpu_nvidia</code> gate heavier deps.</li>
+<li>Extend: add bins under <code>tools/src/bin/</code>; reuse shared parsers/services to avoid duplication.</li>
+</ul>
+<h2 id="cross-crate-interactions-happy-path"><a class="header" href="#cross-crate-interactions-happy-path">Cross-crate interactions (happy path)</a></h2>
+<ol>
+<li>sim_core builds the app and recorder scaffolding; app injects hooks + recorder meta/world state.</li>
+<li>vision_runtime capture turns renders into <code>FrameRecord</code>s; capture_utils writes JSON labels/images to disk.</li>
+<li>data_contracts defines the run/label schema; tools/ETL validate against it.</li>
+<li>warehouse_etl (tools) + training consume manifests/shards; models define TinyDet/BigDet; inference factory loads checkpoints; vision_runtime runs detectors live.</li>
+</ol>
+<h2 id="notes-for-contributors"><a class="header" href="#notes-for-contributors">Notes for contributors</a></h2>
+<ul>
+<li>Keep sim_core and vision_core domain-agnostic and detector-free; domain/world logic lives in apps.</li>
+<li>Prefer explicit plugin wiring and mode gating over hidden magic.</li>
+<li>Gate heavy deps behind features; default to NdArray where possible for tests.</li>
+<li>Preserve schema compatibility (data_contracts) so ETL/training/tools remain stable.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="architecture.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="hooks.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="architecture.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="hooks.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

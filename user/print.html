@@ -1,0 +1,643 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>CortenForge User Guide</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="happy_path.html"><strong aria-hidden="true">2.</strong> Happy path</a></li><li class="chapter-item expanded "><a href="capture.html"><strong aria-hidden="true">3.</strong> Capture</a></li><li class="chapter-item expanded "><a href="etl.html"><strong aria-hidden="true">4.</strong> ETL / Warehouse</a></li><li class="chapter-item expanded "><a href="training.html"><strong aria-hidden="true">5.</strong> Training</a></li><li class="chapter-item expanded "><a href="inference.html"><strong aria-hidden="true">6.</strong> Inference</a></li><li class="chapter-item expanded "><a href="tools.html"><strong aria-hidden="true">7.</strong> Tools</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQ / Troubleshooting</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">CortenForge User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>Welcome to the CortenForge user guide. This book shows how to use the substrate (sim_core, vision_core/runtime, data_contracts, models, training, inference, capture_utils, colon_sim_tools) with <code>colon_sim</code> as the worked example.</p>
+<p>Build this book:</p>
+<pre><code class="language-bash">mdbook build docs/user_book
+</code></pre>
+<p>What you’ll find:</p>
+<ul>
+<li>Happy-path walkthrough (capture → ETL → train → infer) with default commands.</li>
+<li>Minimal usage for capture (sim_view/datagen), ETL, training, inference, and tools.</li>
+<li>FAQ/Troubleshooting for common questions.</li>
+</ul>
+<p>Prereqs:</p>
+<ul>
+<li>Rust + Cargo installed.</li>
+<li>GPU optional: defaults work on CPU/Metal/NDArray; WGPU paths are opt-in via features/env.</li>
+<li>Build docs: <code>mdbook build docs/user_book</code></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="happy-path-defaults-only"><a class="header" href="#happy-path-defaults-only">Happy path (defaults only)</a></h1>
+<p>Use these minimal commands to exercise the full pipeline with defaults:</p>
+<ol>
+<li>Capture (interactive):</li>
+</ol>
+<pre><code class="language-bash"> cargo run --bin sim_view
+</code></pre>
+<details>
+<summary>Release (faster) & how it works</summary>
+<pre><code class="language-bash">cargo run --release --bin sim_view
+</code></pre>
+<ul>
+<li>Optimized binary for smoother playback.</li>
+<li>Same args apply (<code>--headless</code> if you need it).</li>
+</ul>
+</details>
+<p>Headless wrapper:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin datagen
+</code></pre>
+<details>
+<summary>Release (faster) & how it works</summary>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --release --bin datagen
+</code></pre>
+<ul>
+<li><code>datagen</code> invokes <code>sim_view</code> and passes the appropriate flags automatically.</li>
+<li>It looks for <code>sim_view</code> in the same profile dir (<code>target/release/sim_view</code> when using <code>--release</code>).</li>
+<li>If <code>sim_view</code> is missing there, build it once: <code>cargo build --release --bin sim_view</code>.</li>
+<li>You can pass extra args: <code>--max-frames 100 --headless</code> etc.</li>
+</ul>
+</details>
+<ol start="2">
+<li>ETL (build warehouse):</li>
+</ol>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin warehouse_etl
+</code></pre>
+<details>
+<summary>Release (faster) & notes</summary>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --release --bin warehouse_etl
+</code></pre>
+<ul>
+<li>Optimized binary; same flags as debug.</li>
+<li>Lives in <code>target/release/warehouse_etl</code> when built with <code>--release</code>.</li>
+</ul>
+</details>
+<ol start="3">
+<li>Train (NdArray backend unless you enable WGPU):</li>
+</ol>
+<pre><code class="language-bash">cargo run -p training --features burn_runtime --bin train -- \
+  --manifest artifacts/tensor_warehouse/v&lt;version&gt;/manifest.json
+</code></pre>
+<details>
+<summary>Release (faster) & notes</summary>
+<pre><code class="language-bash">cargo run -p training --release --features burn_runtime --bin train -- \
+  --manifest artifacts/tensor_warehouse/v&lt;version&gt;/manifest.json
+</code></pre>
+<ul>
+<li>Uses optimized kernels; same CLI.</li>
+<li>Binary path when built: <code>target/release/train</code>.</li>
+</ul>
+</details>
+<ol start="4">
+<li>Inference (real-time):</li>
+</ol>
+<pre><code class="language-bash">cargo run --bin inference_view
+</code></pre>
+<details>
+<summary>Release (faster) & notes</summary>
+<pre><code class="language-bash">cargo run --release --bin inference_view
+</code></pre>
+<ul>
+<li>Optimized viewer for smoother overlay; pass your usual flags if any.</li>
+<li>Binary path when built: <code>target/release/inference_view</code>.</li>
+</ul>
+</details>
+   Single image:
+```bash
+cargo run -p colon_sim_tools --bin single_infer -- --image path/to/image.png
+```
+<p>Expected artifacts by the end:</p>
+<ul>
+<li><code>assets/datasets/captures/run_&lt;ts&gt;/</code> (raw capture) → optionally <code>captures_filtered/</code> after prune.</li>
+<li><code>artifacts/tensor_warehouse/v&lt;ts&gt;/manifest.json</code> + shards (ETL).</li>
+<li><code>checkpoints/tinydet.bin</code> or <code>checkpoints/bigdet.bin</code> (training).</li>
+<li>Overlays or boxed PNGs from inference.</li>
+</ul>
+<p>Quick defaults table:</p>
+<div class="table-wrapper"><table><thead><tr><th>Stage</th><th>Command (default)</th><th>Command (release)</th><th>Output</th></tr></thead><tbody>
+<tr><td>Capture</td><td><code>cargo run --bin sim_view</code></td><td><code>cargo run --release --bin sim_view</code></td><td><code>assets/datasets/captures/run_&lt;ts&gt;/</code></td></tr>
+<tr><td>Headless</td><td><code>cargo run -p colon_sim_tools --bin datagen</code></td><td><code>cargo run -p colon_sim_tools --release --bin datagen</code></td><td><code>assets/datasets/captures/run_&lt;ts&gt;/</code></td></tr>
+<tr><td>ETL</td><td><code>cargo run -p colon_sim_tools --bin warehouse_etl</code></td><td><code>cargo run -p colon_sim_tools --release --bin warehouse_etl</code></td><td><code>artifacts/tensor_warehouse/v&lt;ts&gt;/manifest</code></td></tr>
+<tr><td>Train</td><td><code>cargo run -p training --features burn_runtime --bin train -- --manifest ...</code></td><td><code>cargo run -p training --release --features burn_runtime --bin train -- --manifest ...</code></td><td><code>checkpoints/tinydet.bin</code> (or bigdet)</td></tr>
+<tr><td>Infer RT</td><td><code>cargo run --bin inference_view</code></td><td><code>cargo run --release --bin inference_view</code></td><td>Live overlay; optional run dir if set</td></tr>
+<tr><td>Infer Img</td><td><code>cargo run -p colon_sim_tools --bin single_infer -- --image img.png</code></td><td>(usually debug is fine)</td><td><code>img_boxed.png</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="capture"><a class="header" href="#capture">Capture</a></h1>
+<p>Two primary ways to capture data:</p>
+<h2 id="interactive-sim_view"><a class="header" href="#interactive-sim_view">Interactive (sim_view)</a></h2>
+<p>Run the sim, drive manually, and record:</p>
+<pre><code class="language-bash">cargo run --bin sim_view
+</code></pre>
+<ul>
+<li>Controls (HUD also shows them):
+<ul>
+<li><code>WASD</code> + mouse: move/fly. <code>Shift/Ctrl</code>: speed up/down.</li>
+<li><code>C</code>: cycle cameras (first-person probe cam shows ground-truth boxes).</li>
+<li><code>P</code>: toggle autopilot/probe drive.</li>
+<li><code>L</code>: start/stop recording; HUD lights up while recording.</li>
+<li><code>H</code>: toggle HUD; <code>Esc</code> quits.</li>
+</ul>
+</li>
+<li>Outputs: <code>assets/datasets/captures/run_&lt;timestamp&gt;/</code> with <code>run_manifest.json</code>, <code>images/</code>, <code>labels/</code>, <code>overlays/</code> (if you render them).</li>
+<li>Data run shortcut: <code>O</code> enables autopilot, switches to probe POV, and auto-starts/stops recording at the tunnel end.</li>
+</ul>
+<h2 id="headless-wrapper-datagen"><a class="header" href="#headless-wrapper-datagen">Headless wrapper (datagen)</a></h2>
+<p>Run headless capture with defaults:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin datagen
+</code></pre>
+<p>This creates a new <code>run_&lt;timestamp&gt;</code> under <code>assets/datasets/captures/</code>.</p>
+<h3 id="release-builds-faster"><a class="header" href="#release-builds-faster">Release builds (faster)</a></h3>
+<p>Use optimized binaries when you want max throughput or smooth playback:</p>
+<pre><code class="language-bash">cargo run --release --bin sim_view
+cargo run -p colon_sim_tools --release --bin datagen
+</code></pre>
+<p>How it’s wired: <code>datagen</code> is a thin wrapper that spawns <code>sim_view</code> with the right args. It looks for <code>sim_view</code> in the same <code>target/&lt;profile&gt;/</code> directory as itself; build <code>sim_view</code> once in that profile (<code>cargo build --release --bin sim_view</code>) so the wrapper can find it. If you prefer debug, build debug <code>sim_view</code> (<code>cargo build --bin sim_view</code>) and run the debug <code>datagen</code>, or put any <code>sim_view</code> on your <code>PATH</code>.</p>
+<h2 id="run-layout"><a class="header" href="#run-layout">Run layout</a></h2>
+<ul>
+<li><code>run_manifest.json</code>: metadata for the run (seed, timing, camera, version).</li>
+<li><code>images/</code>: frames.</li>
+<li><code>labels/</code>: <code>frame_XXXXX.json</code> (labels, polyp_seed, bbox_norm/bbox_px). Each JSON holds normalized and pixel boxes plus optional metadata (e.g., polyp seed).</li>
+<li><code>overlays/</code>: optional rendered boxes (see below).</li>
+<li>Common manifest fields: run id, timestamp, seed, camera params, version, capture settings (resize/letterbox), checksum of frames.</li>
+<li>Screenshot marker: HUD with REC on and box overlays visible.</li>
+<li>Minimal manifest excerpt (example):</li>
+</ul>
+<pre><code class="language-json">{
+  "run_id": "run_2024-05-01T12-00-00Z",
+  "seed": 1234,
+  "camera": { "fov": 90, "mode": "probe_fp" },
+  "version": "v1",
+  "frames": 240,
+  "resize": { "target": [384, 384], "letterbox": true }
+}
+</code></pre>
+<h2 id="overlays-and-pruning"><a class="header" href="#overlays-and-pruning">Overlays and pruning</a></h2>
+<ul>
+<li>Render boxes onto PNGs:</li>
+</ul>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin overlay_labels -- assets/datasets/captures/run_&lt;timestamp&gt;
+</code></pre>
+<ul>
+<li>Prune empty-label frames (recommended before ETL):</li>
+</ul>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin prune_empty -- --input assets/datasets/captures --output assets/datasets/captures_filtered
+</code></pre>
+<ul>
+<li>If you re-run overlays after pruning, point to the pruned root to keep paths consistent.</li>
+</ul>
+<p>Quality tips:</p>
+<ul>
+<li>Keep HUD on while recording so you can confirm camera/record status.</li>
+<li>If you want deterministic runs, pass <code>--seed &lt;n&gt;</code> to <code>sim_view</code> or use headless <code>datagen</code> (defaults to headless + auto-run dir).</li>
+<li>Verify run completeness by checking <code>frames</code> count in <code>run_manifest.json</code> and matching <code>images/</code> + <code>labels/</code> counts.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="etl--warehouse"><a class="header" href="#etl--warehouse">ETL / Warehouse</a></h1>
+<p>Build a tensor warehouse (manifest + shards) from filtered captures with defaults:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin warehouse_etl
+</code></pre>
+<p>Defaults:</p>
+<ul>
+<li>Input root: <code>assets/datasets/captures_filtered</code></li>
+<li>Output root: <code>artifacts/tensor_warehouse</code></li>
+<li>Target size: 384x384, resize mode: letterbox, max boxes: 16</li>
+</ul>
+<p>Optional summary/export:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin warehouse_export -- \
+  --output-root artifacts/tensor_warehouse \
+  --out warehouse_summary.parquet
+</code></pre>
+<p>If you need a canned training command, use:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin warehouse_cmd -- --shell sh --adapter nvidia
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li><code>warehouse_etl</code> validates inputs and produces <code>manifest.json</code> + shard files under the output root (by default under <code>artifacts/tensor_warehouse/v&lt;version&gt;/</code>).</li>
+<li>If you prune runs, point <code>--input-root</code> at the pruned path (e.g., <code>captures_filtered</code>).</li>
+<li>Defaults are sane; override only when needed (e.g., different resize, max boxes, store mode).</li>
+<li>Manifest highlights: lists runs, sample counts, shard paths/checksums; used by training.</li>
+<li>Store modes: defaults to a single local store; see contributor docs if you want alternate store modes or sharding strategies for scale.</li>
+<li>Validation: ETL fails fast if labels/images are missing or boxes are out of bounds. Re-run capture/prune or fix inputs, then rerun ETL.</li>
+<li>Versioning: each ETL run writes <code>v&lt;timestamp&gt;</code> under the output root; training consumes the chosen version’s manifest.</li>
+</ul>
+<p>What the manifest looks like (simplified):</p>
+<pre><code class="language-json">{
+  "version": "v2024-05-01T12-00-00Z",
+  "runs": [
+    { "run_id": "run_...", "frames": 240, "path": "captures_filtered/run_..."},
+    ...
+  ],
+  "shards": [
+    { "path": "shards/shard_000.parquet", "samples": 2048, "checksum": "..." }
+  ],
+  "resize": { "target": [384,384], "letterbox": true },
+  "max_boxes": 16
+}
+</code></pre>
+<ul>
+<li>Diagram marker: simple flow “captures_filtered → ETL → warehouse manifest/shards” with defaults called out.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="training"><a class="header" href="#training">Training</a></h1>
+<p>Train using the warehouse manifest. Defaults use the NdArray backend unless you enable WGPU via features/env.</p>
+<p>Minimal run:</p>
+<pre><code class="language-bash">cargo run -p training --features burn_runtime --bin train -- \
+  --manifest artifacts/tensor_warehouse/v&lt;version&gt;/manifest.json
+</code></pre>
+<p>Key options you might override:</p>
+<ul>
+<li><code>--model {tiny,big}</code> (default tiny; BigDet is multibox with <code>--max-boxes</code>)</li>
+<li><code>--max-boxes</code> (for BigDet)</li>
+<li><code>--batch-size</code>, <code>--epochs</code>, <code>--lr-*</code></li>
+<li><code>--checkpoint-out</code> (defaults per model)</li>
+<li><code>--backend {ndarray,wgpu}</code> (NdArray by default for portability)</li>
+</ul>
+<p>WGPU envs (if needed): see <code>reference/wgpu_envs.md</code> in the contributor docs.</p>
+<p>Defaults are tuned for ease of use; start with the minimal command, then layer overrides as needed (e.g., batch size, epochs). For fast checks, keep NdArray; enable <code>--features burn_runtime_wgpu</code> if you want GPU acceleration and set WGPU envs.</p>
+<p>Models:</p>
+<ul>
+<li>TinyDet: single-logit detector, best for single-box targets; fastest to train.</li>
+<li>BigDet: multibox detector; greedy IoU matching builds box/objectness targets; loss = masked L1 + BCE (optional IoU). <code>--max-boxes</code> sets the number of slots and must match ETL.</li>
+</ul>
+<p>Checkpoints:</p>
+<ul>
+<li>Defaults: <code>checkpoints/tinydet.bin</code> or <code>checkpoints/bigdet.bin</code> unless you override.</li>
+<li>Use different filenames per model to avoid collisions; <code>--checkpoint-out</code> wins if set.</li>
+</ul>
+<p>Data shapes (from ETL):</p>
+<ul>
+<li>Inputs: letterboxed RGB 384x384 (by default), normalized to [0,1].</li>
+<li>Targets: boxes are normalized x0,y0,x1,y1 with a per-frame mask to ignore padded slots.</li>
+</ul>
+<p>Troubleshooting:</p>
+<ul>
+<li>Loss stuck near zero: ensure you passed the correct manifest; verify labels exist after prune.</li>
+<li>OOM: lower <code>--batch-size</code>; stick to NdArray for CPU runs.</li>
+<li>Slow runs: disable WGPU unless you need it; keep logging minimal (<code>--log-interval</code>).</li>
+</ul>
+<p>Expected outputs (happy path):</p>
+<ul>
+<li>Training log prints loss per epoch and writes <code>checkpoints/&lt;model&gt;.bin</code>.</li>
+<li>A minimal 1-epoch sanity run should finish in minutes on CPU with NdArray.</li>
+<li>Reuse the checkpoint with <code>--detector-weights</code> in inference to verify end-to-end.</li>
+</ul>
+<p>Worked example:</p>
+<ol>
+<li>Run ETL: <code>cargo run -p colon_sim_tools --bin warehouse_etl</code></li>
+<li>Train TinyDet (1 epoch, small batch):</li>
+</ol>
+<pre><code class="language-bash">cargo run -p training --features burn_runtime --bin train -- \
+  --manifest artifacts/tensor_warehouse/v&lt;ts&gt;/manifest.json \
+  --epochs 1 --batch-size 2 --checkpoint-out checkpoints/tinydet_demo.bin
+</code></pre>
+<ol start="3">
+<li>Run inference with that checkpoint:</li>
+</ol>
+<pre><code class="language-bash">cargo run --bin inference_view -- --detector-weights checkpoints/tinydet_demo.bin
+</code></pre>
+<p>You should see boxes overlaid in <code>inference_view</code>; adjust thresholds only if needed.</p>
+<ul>
+<li>Screenshot marker: tiny training log snippet and a checkpoints folder view showing tinydet/bigdet bins.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="inference"><a class="header" href="#inference">Inference</a></h1>
+<h2 id="real-time-inference"><a class="header" href="#real-time-inference">Real-time inference</a></h2>
+<p>Launch the inference view (defaults shown):</p>
+<pre><code class="language-bash">cargo run --bin inference_view
+</code></pre>
+<p>Flags:</p>
+<ul>
+<li><code>--detector-weights &lt;path&gt;</code> (Burn checkpoint; optional, falls back to heuristic)</li>
+<li><code>--infer-obj-thresh</code>, <code>--infer-iou-thresh</code> (defaults 0.3/0.5)</li>
+<li><code>--headless</code>, <code>--max-frames</code>, <code>--output-root</code> (if you want to record)</li>
+<li>Overlay: bounding boxes are drawn in the viewport; set thresholds only if you need stricter filtering.</li>
+<li>Output: if <code>--output-root</code> is set, a <code>run_&lt;timestamp&gt;</code> is created with manifest/images/labels/overlays similar to capture.</li>
+</ul>
+<h2 id="single-image-inference"><a class="header" href="#single-image-inference">Single-image inference</a></h2>
+<p>Run the detector on one image and emit a boxed PNG:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin single_infer -- --image path/to/image.png
+</code></pre>
+<p>Options:</p>
+<ul>
+<li><code>--out</code> (default <code>&lt;stem&gt;_boxed.png</code> next to input)</li>
+<li><code>--infer-obj-thresh</code>, <code>--infer-iou-thresh</code></li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li>If no weights are provided, a heuristic detector runs; with weights, Burn is used.</li>
+<li>Set WGPU envs if you need to force a backend/adapter.</li>
+<li>For predictable results, supply a checkpoint (<code>--detector-weights</code>) and keep defaults unless you need to tune thresholds.</li>
+<li>For repeatability, pin seeds in capture/training, then reuse the produced checkpoint here.</li>
+<li>If overlays are missing, confirm you are in <code>inference_view</code> (not <code>sim_view</code>) and that thresholds are not too strict.</li>
+<li>Expected outputs:
+<ul>
+<li><code>inference_view</code> shows live boxes in the viewport; if <code>--output-root</code> is set, it writes a run dir with overlays.</li>
+<li><code>single_infer</code> writes <code>&lt;stem&gt;_boxed.png</code>; the log reports how many detections were drawn.</li>
+</ul>
+</li>
+</ul>
+<p>Backend tips:</p>
+<ul>
+<li>NdArray (default) keeps inference portable; enable <code>--features burn_runtime_wgpu</code> and set <code>WGPU_BACKEND</code>/<code>WGPU_ADAPTER_NAME</code> if you want GPU acceleration.</li>
+<li>If GPU startup fails, rerun with NdArray to confirm the checkpoint and thresholds are sound before debugging WGPU.</li>
+<li>Screenshot marker: inference_view viewport with boxes; single_infer boxed PNG output.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="tools"><a class="header" href="#tools">Tools</a></h1>
+<p>Tools live in the <code>colon_sim_tools</code> crate. Most run with defaults; heavy ones are feature-gated.</p>
+<p>Core (always available):</p>
+<ul>
+<li><code>overlay_labels</code>: render boxes onto run images.</li>
+<li><code>prune_empty</code>: filter runs to keep only labeled frames.</li>
+<li><code>warehouse_etl</code>: build warehouse shards/manifest.</li>
+<li><code>warehouse_export</code>: Parquet summary export.</li>
+<li><code>warehouse_cmd</code>: emit a training command.</li>
+<li><code>single_infer</code>: single-image detection → boxed PNG.</li>
+<li><code>datagen</code>: headless capture wrapper (runs sim headless and writes a run dir).</li>
+</ul>
+<p>Feature-gated:</p>
+<ul>
+<li><code>datagen_scheduler</code> (<code>--features scheduler</code>): schedule headless datagen runs.</li>
+<li><code>tui</code> (<code>--features tui</code>): terminal UI wrapper.</li>
+<li><code>gpu_nvidia</code>: optional NVML telemetry for scheduler (pulls <code>nvml-wrapper</code>).</li>
+</ul>
+<p>Examples:</p>
+<pre><code class="language-bash">cargo run -p colon_sim_tools --bin overlay_labels -- assets/datasets/captures/run_&lt;ts&gt;
+cargo run -p colon_sim_tools --bin prune_empty -- --input assets/datasets/captures --output assets/datasets/captures_filtered
+cargo run -p colon_sim_tools --features scheduler --bin datagen_scheduler -- --help
+</code></pre>
+<p>Defaults:</p>
+<ul>
+<li>Tools run with minimal flags; use defaults first, override only when needed (paths, thresholds, adapter/shell).</li>
+<li>Feature flags keep the default build lean; enable only what you need.</li>
+<li>Sane defaults: ETL targets <code>artifacts/tensor_warehouse</code>, prune defaults to keeping labeled frames, scheduler defaults to local machine (set shells/adapters if remote).</li>
+<li><code>datagen</code> shells out to <code>sim_view</code> in the same build profile; build <code>sim_view</code> in that profile once if it’s missing (<code>cargo build --release --bin sim_view</code> for release).</li>
+</ul>
+<p>Quick reference (defaults):</p>
+<ul>
+<li><code>overlay_labels &lt;run_dir&gt;</code> → writes overlays under the same run.</li>
+<li><code>prune_empty --input captures --output captures_filtered</code> → keeps labeled frames only.</li>
+<li><code>warehouse_etl</code> → reads <code>captures_filtered</code>, writes <code>artifacts/tensor_warehouse/v&lt;ts&gt;/</code>.</li>
+<li><code>warehouse_cmd</code> → emits a one-liner train command tuned to the current defaults.</li>
+<li><code>single_infer --image img.png</code> → writes <code>img_boxed.png</code> next to input.</li>
+<li>Screenshot marker: example overlay image (before/after) and a prune run folder view.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="faq--troubleshooting"><a class="header" href="#faq--troubleshooting">FAQ / Troubleshooting</a></h1>
+<ul>
+<li>
+<p><strong>Where are captures saved?</strong><br />
+Under <code>assets/datasets/captures/run_&lt;timestamp&gt;/</code> by default. Pruned copies go to <code>&lt;output_root&gt;_filtered</code> if you enable prune.</p>
+</li>
+<li>
+<p><strong>Detector weights missing?</strong><br />
+Real-time and single-image inference fall back to a heuristic if no checkpoint is provided.</p>
+</li>
+<li>
+<p><strong>How do I rerun capture headless?</strong><br />
+Use <code>cargo run -p colon_sim_tools --bin datagen</code> (defaults headless on). Outputs land under <code>assets/datasets/captures</code>.</p>
+</li>
+<li>
+<p><strong>ETL failing validation?</strong><br />
+Check input roots/paths; ensure labels/images exist; rerun <code>warehouse_etl</code> with defaults; see contributor docs for schema/validation details.</p>
+</li>
+<li>
+<p><strong>WGPU backend issues?</strong><br />
+Set <code>WGPU_BACKEND</code>/<code>WGPU_ADAPTER_NAME</code>/<code>WGPU_POWER_PREF</code> as needed; defaults to system choice.</p>
+</li>
+<li>
+<p><strong>Train command not matching my setup?</strong><br />
+Use <code>warehouse_cmd</code> to emit a tailored one-liner; override manifest/store/prefetch/batch/log flags as needed.</p>
+</li>
+<li>
+<p><strong>Boxes not showing?</strong><br />
+<code>sim_view</code> focuses on capture; real-time detector overlay is in <code>inference_view</code>. For offline overlays, run <code>overlay_labels</code> on a captured run.</p>
+</li>
+<li>
+<p><strong>Recording doesn’t start?</strong><br />
+Ensure HUD shows <code>REC</code> when you press <code>L</code>; autopilot start/stop (<code>O</code>) only works in the tunnel flow. Check disk space under <code>assets/datasets/captures</code>.</p>
+</li>
+<li>
+<p><strong>Store mode / version confusion?</strong><br />
+Each ETL run writes a new <code>v&lt;timestamp&gt;</code> under <code>artifacts/tensor_warehouse/</code>. Point training at the manifest inside the version you want.</p>
+</li>
+<li>
+<p><strong>Scheduler/TUI missing?</strong><br />
+Enable features: <code>cargo run -p colon_sim_tools --features scheduler --bin datagen_scheduler -- --help</code> (or <code>--features tui</code>).</p>
+</li>
+<li>
+<p><strong>Where do checkpoints live?</strong><br />
+By default under <code>checkpoints/</code>; TinyDet → <code>tinydet.bin</code>, BigDet → <code>bigdet.bin</code> unless you override <code>--checkpoint-out</code>.</p>
+</li>
+<li>
+<p><strong>Do I need to set seeds?</strong><br />
+For reproducibility across capture/train/infer, set seeds in capture (<code>--seed</code>), keep ETL defaults, and train with the same manifest.</p>
+</li>
+<li>
+<p><strong>datagen says sim_view missing in release?</strong><br />
+Build <code>sim_view</code> in the same profile once: <code>cargo build --release --bin sim_view</code>, then rerun <code>datagen</code>.</p>
+</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>
