@@ -26,11 +26,11 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1.0"
-vision_core = { path = "../vision_core", version = "0.1.0" }
-sim_core = { path = "../sim_core", version = "0.1.0" }
+vision_core = { version = "0.1.0" }
+sim_core = { version = "0.1.0" }
 bevy = "0.17.3"
 burn = { version = "0.14", default-features = false, features = ["autodiff"] }
 burn-ndarray = { version = "0.14", default-features = false, optional = true }
 burn-wgpu = { version = "0.14", optional = true, default-features = true }
-models = { path = "../models", version = "0.1.0" }
+models = { version = "0.1.0" }
 bincode = { version = "2.0.0-rc.3", default-features = false, features = ["alloc", "serde"] }
