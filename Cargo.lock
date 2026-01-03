@@ -2377,7 +2377,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "vision_core",
+ "vision_core 0.1.0",
 ]
 
 [[package]]
@@ -2581,7 +2581,7 @@ dependencies = [
  "sysinfo 0.30.13",
  "tempfile",
  "thiserror 1.0.69",
- "vision_core",
+ "vision_core 0.1.0",
  "vision_runtime",
 ]
 
@@ -2598,7 +2598,7 @@ dependencies = [
  "rand 0.8.5",
  "sim_core",
  "smallvec",
- "vision_core",
+ "vision_core 0.1.0",
  "vision_runtime",
 ]
 
@@ -2628,7 +2628,7 @@ dependencies = [
  "sha2",
  "sysinfo 0.30.13",
  "thiserror 1.0.69",
- "vision_core",
+ "vision_core 0.1.0",
 ]
 
 [[package]]
@@ -2904,7 +2904,7 @@ dependencies = [
  "models",
  "sim_core",
  "training",
- "vision_core",
+ "vision_core 0.1.0",
  "vision_runtime",
 ]
 
@@ -4744,7 +4744,7 @@ dependencies = [
  "burn-wgpu",
  "models",
  "sim_core",
- "vision_core",
+ "vision_core 0.1.0",
 ]
 
 [[package]]
@@ -7300,7 +7300,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
- "vision_core",
+ "vision_core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -8281,6 +8281,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "vision_core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c88dfbcc2934f01a6bc2dbcc5414abf3493983ffb9c25f8c39e636ba6f66a788"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "image 0.24.9",
+ "serde",
+]
+
+[[package]]
 name = "vision_runtime"
 version = "0.1.0"
 dependencies = [
@@ -8290,7 +8302,7 @@ dependencies = [
  "futures-lite",
  "image 0.24.9",
  "sim_core",
- "vision_core",
+ "vision_core 0.1.0",
 ]
 
 [[package]]
