@@ -28,16 +28,16 @@ burn-dataset = ["burn_dataset"]
 cli-support = ["cli_support"]
 
 [dependencies]
-sim_core = { package = "cortenforge-sim-core", path = "../../sim_core", optional = true, version = "0.1.0" }
-vision_core = { package = "cortenforge-vision-core", path = "../../vision_core", optional = true, version = "0.1.0" }
-vision_runtime = { package = "cortenforge-vision-runtime", path = "../../vision_runtime", optional = true, version = "0.1.0" }
-capture_utils = { package = "cortenforge-capture-utils", path = "../../capture_utils", optional = true, version = "0.1.0" }
-data_contracts = { package = "cortenforge-data-contracts", path = "../../data_contracts", optional = true, version = "0.1.0" }
-models = { package = "cortenforge-models", path = "../../models", optional = true, version = "0.1.0" }
-inference = { package = "cortenforge-inference", path = "../../inference", optional = true, version = "0.1.0" }
-training = { package = "cortenforge-training", path = "../../training", optional = true, version = "0.1.0" }
-burn_dataset = { package = "cortenforge-burn-dataset", path = "../burn_dataset", optional = true, version = "0.1.0" }
-cli_support = { package = "cortenforge-cli-support", path = "../cli_support", optional = true, version = "0.1.0" }
+sim_core = { package = "cortenforge-sim-core", version = "0.1.0", optional = true }
+vision_core = { package = "cortenforge-vision-core", version = "0.1.0", optional = true }
+vision_runtime = { package = "cortenforge-vision-runtime", version = "0.1.0", optional = true }
+capture_utils = { package = "cortenforge-capture-utils", version = "0.1.0", optional = true }
+data_contracts = { package = "cortenforge-data-contracts", version = "0.1.0", optional = true }
+models = { package = "cortenforge-models", version = "0.1.0", optional = true }
+inference = { package = "cortenforge-inference", version = "0.1.0", optional = true }
+training = { package = "cortenforge-training", version = "0.1.0", optional = true }
+burn_dataset = { package = "cortenforge-burn-dataset", version = "0.1.0", optional = true }
+cli_support = { package = "cortenforge-cli-support", version = "0.1.0", optional = true }
 burn = { version = "0.14", optional = true, default-features = false, features = ["autodiff", "std"] }
 burn-ndarray = { version = "0.14", optional = true, default-features = false }
 burn-wgpu = { version = "0.14", optional = true, default-features = true }
