@@ -1,1 +1,1 @@
-pub use colon_sim::vision::overlay::{draw_rect, normalize_box};
+pub use vision_core::overlay::{draw_rect, normalize_box};

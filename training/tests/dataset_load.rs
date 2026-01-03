@@ -29,7 +29,7 @@ fn load_and_collate_synthetic() {
 
     // Write a tiny 2x2 RGB image.
     let mut img = RgbImage::new(2, 2);
-    for (_i, pixel) in img.pixels_mut().enumerate() {
+    for pixel in img.pixels_mut() {
         *pixel = Rgb([255, 0, 0]);
     }
     let img_path = temp.path().join("frame_00001.png");

@@ -1806,12 +1806,11 @@ dependencies = [
 
 [[package]]
 name = "bincode"
-version = "2.0.1"
+version = "2.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
+checksum = "f11ea1a0346b94ef188834a65c068a03aec181c94896d481d7a0a40d85b0ce95"
 dependencies = [
  "serde",
- "unty",
 ]
 
 [[package]]
@@ -2238,6 +2237,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn_dataset"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "burn",
+ "burn-ndarray",
+ "crossbeam-channel",
+ "data_contracts",
+ "image 0.24.9",
+ "memmap2",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "bytemuck"
 version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2494,6 +2513,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d728cc89cf3aee9ff92b05e62b19ee65a02b5702cff7d5a377e32c6ae29d8d"
 
 [[package]]
+name = "cli_support"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "clap",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2528,6 +2555,7 @@ dependencies = [
  "burn",
  "burn-ndarray",
  "burn-wgpu",
+ "burn_dataset",
  "capture_utils",
  "clap",
  "colon_sim_app",
@@ -2582,9 +2610,10 @@ dependencies = [
  "arrow-array",
  "arrow-schema",
  "arrow-select",
+ "burn_dataset",
  "capture_utils",
  "clap",
- "colon_sim",
+ "cli_support",
  "crossterm",
  "data_contracts",
  "image 0.24.9",
@@ -2857,6 +2886,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ceec7a6067e62d6f931a2baf6f3a751f4a892595bcec1461a3c94ef9949864b6"
 dependencies = [
  "bindgen",
+]
+
+[[package]]
+name = "cortenforge"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "burn",
+ "burn-ndarray",
+ "burn-wgpu",
+ "burn_dataset",
+ "capture_utils",
+ "cli_support",
+ "data_contracts",
+ "inference",
+ "models",
+ "sim_core",
+ "training",
+ "vision_core",
+ "vision_runtime",
 ]
 
 [[package]]
@@ -4689,6 +4738,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
+ "bincode",
  "burn",
  "burn-ndarray",
  "burn-wgpu",
@@ -5246,6 +5296,7 @@ dependencies = [
 name = "models"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "burn",
 ]
 
@@ -7961,6 +8012,7 @@ name = "training"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "burn",
  "burn-ndarray",
  "burn-wgpu",
@@ -8116,12 +8168,6 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
-
-[[package]]
-name = "unty"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
 
 [[package]]
 name = "ureq"

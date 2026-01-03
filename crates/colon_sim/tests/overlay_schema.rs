@@ -1,4 +1,4 @@
-use colon_sim::tools::overlay::generate_overlays;
+use capture_utils::generate_overlays;
 use image::{Rgba, RgbaImage};
 use serde_json::json;
 use std::fs;
@@ -38,7 +38,7 @@ fn overlay_generation_respects_schema_and_writes_files() {
     .unwrap();
 
     // Generate overlays and confirm output exists.
-    generate_overlays(run_dir, "labels", "overlays");
+    generate_overlays(run_dir).unwrap();
     let overlays_dir = run_dir.join("overlays");
     let overlay_file = overlays_dir.join("frame_00000.png");
     assert!(overlay_file.exists(), "overlay file should be created");

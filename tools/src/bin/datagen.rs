@@ -1,6 +1,6 @@
 use clap::Parser;
-use colon_sim::cli::common::CaptureOutputArgs;
-use colon_sim::cli::seed::resolve_seed;
+use cli_support::common::CaptureOutputArgs;
+use cli_support::seed::resolve_seed;
 use std::path::PathBuf;
 use std::process::Command;
 

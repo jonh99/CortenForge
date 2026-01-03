@@ -1,7 +1,7 @@
 [features]
 default = []
-tui = ["colon_sim/tui", "crossterm", "ratatui"]
-scheduler = ["colon_sim/scheduler", "sysinfo"]
+tui = ["crossterm", "ratatui"]
+scheduler = ["sysinfo"]
 # Optional GPU feature flag to mirror root workspace flag.
 gpu_nvidia = ["nvml-wrapper"]
 
@@ -9,6 +9,7 @@ gpu_nvidia = ["nvml-wrapper"]
 name = "colon_sim_tools"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
 publish = false
 
 [lib]
@@ -16,7 +17,8 @@ name = "colon_sim_tools"
 path = "src/lib.rs"
 
 [dependencies]
-colon_sim = { path = ".." }
+cli_support = { path = "../crates/cli_support" }
+burn_dataset = { path = "../crates/burn_dataset", version = "0.1.0", default-features = false, features = ["sha2"] }
 vision_core = { path = "../vision_core" }
 data_contracts = { path = "../data_contracts" }
 inference = { path = "../inference" }

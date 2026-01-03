@@ -1,10 +1,10 @@
 use anyhow::Context;
-use clap::Parser;
-use colon_sim::tools::burn_dataset::{
+use burn_dataset::{
     index_runs, load_sample_for_etl, summarize_root_with_thresholds, CacheableTransformConfig,
     DatasetConfig, DatasetSample, Endianness, ResizeMode, ShardDType, ShardMetadata,
     ValidationThresholds, WarehouseManifest,
 };
+use clap::Parser;
 use rayon::prelude::*;
 use sha2::Digest;
 use std::env;
@@ -24,7 +24,7 @@ struct Args {
     input_root: PathBuf,
     /// Output root for the warehouse artifacts.
     #[command(flatten)]
-    output: colon_sim::cli::common::WarehouseOutputArgs,
+    output: cli_support::common::WarehouseOutputArgs,
     /// Target size WxH (e.g., 256x256).
     #[arg(long, value_parser = parse_target_size, default_value = "384x384")]
     target_size: (u32, u32),
@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
             run.invalid
         );
     }
-    if report.outcome == colon_sim::tools::burn_dataset::ValidationOutcome::Fail {
+    if report.outcome == burn_dataset::ValidationOutcome::Fail {
         anyhow::bail!("Validation failed; see above.");
     }
 
@@ -122,7 +122,7 @@ fn main() -> anyhow::Result<()> {
     let pipeline = cfg
         .transform
         .clone()
-        .unwrap_or_else(|| colon_sim::tools::burn_dataset::TransformPipeline::from_config(&cfg));
+        .unwrap_or_else(|| burn_dataset::TransformPipeline::from_config(&cfg));
 
     let code_version = WarehouseManifest::resolve_code_version();
     let version = WarehouseManifest::compute_version(

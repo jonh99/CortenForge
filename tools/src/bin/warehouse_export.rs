@@ -2,8 +2,8 @@ use anyhow::Context;
 use arrow_array::{ArrayRef, RecordBatch, StringArray, UInt64Array};
 use arrow_schema::{DataType, Field, Schema};
 use arrow_select::concat::concat_batches;
+use burn_dataset::WarehouseManifest;
 use clap::Parser;
-use colon_sim::tools::burn_dataset::WarehouseManifest;
 use parquet::arrow::ArrowWriter;
 use parquet::file::properties::WriterProperties;
 use std::fs::File;
@@ -17,7 +17,7 @@ use std::sync::Arc;
 )]
 struct Args {
     #[command(flatten)]
-    output: colon_sim::cli::common::WarehouseOutputArgs,
+    output: cli_support::common::WarehouseOutputArgs,
     /// Path to manifest.json produced by warehouse_etl.
     #[arg(long)]
     manifest: Option<PathBuf>,

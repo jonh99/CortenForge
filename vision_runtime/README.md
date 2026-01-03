@@ -18,3 +18,6 @@ Hooks / integration:
 Smoke test guidance:
 - Ensure capture readback wiring works: run the app in inference mode and confirm `FrontCaptureReadback` is populated (no panic).
 - Threshold hotkeys: in inference mode, `-`/`=` adjust objectness and `[`/`]` adjust IoU; `0` forces heuristic detector. Overlay should reflect changes (fallback banner when heuristic).
+
+## License
+Apache-2.0 (see `LICENSE` in the repo root).

@@ -1,4 +1,4 @@
-use colon_sim::tools::burn_dataset::load_run_dataset;
+use burn_dataset::load_run_dataset;
 use image::{Rgba, RgbaImage};
 use serde_json::json;
 use std::fs;

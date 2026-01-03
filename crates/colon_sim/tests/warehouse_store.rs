@@ -1,7 +1,7 @@
 #![cfg(feature = "burn_runtime")]
 
 use burn::backend::ndarray::NdArray;
-use colon_sim::tools::burn_dataset::{
+use burn_dataset::{
     CacheableTransformConfig, DatasetSummary, Endianness, RunSummary, ShardDType, ShardMetadata,
     ValidationThresholds, WarehouseLoaders, WarehouseManifest,
 };
@@ -96,7 +96,7 @@ fn make_manifest(dir: &Path, samples: usize) -> PathBuf {
     let thresholds = ValidationThresholds::default();
     let transform = CacheableTransformConfig {
         target_size: Some((1, 1)),
-        resize_mode: colon_sim::tools::burn_dataset::ResizeMode::Letterbox,
+        resize_mode: burn_dataset::ResizeMode::Letterbox,
         max_boxes: 1,
     };
     let version = WarehouseManifest::compute_version(dir, &transform, true, "test");

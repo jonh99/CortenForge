@@ -1,8 +1,10 @@
 use burn::backend::Autodiff;
 use burn::tensor::Tensor;
-use training::{BigDet, BigDetConfig, TrainBackend};
+use burn_ndarray::NdArray;
+use training::{BigDet, BigDetConfig};
 
-type ADBackend = Autodiff<TrainBackend>;
+// Force a CPU backend for this shape check to avoid requiring a GPU even when backend-wgpu is enabled.
+type ADBackend = Autodiff<NdArray<f32>>;
 
 #[test]
 fn forward_shapes_bigdet() {

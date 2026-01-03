@@ -28,3 +28,6 @@ Tests
 - Collate test (padding/mask/features).
 - BigDet smoke train/test (one step, save/load).
 - BigDet forward-shape test (boxes/scores in expected shapes and [0,1] range).
+
+## License
+Apache-2.0 (see `LICENSE` in the repo root).

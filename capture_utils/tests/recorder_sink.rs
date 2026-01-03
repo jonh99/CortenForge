@@ -31,12 +31,8 @@ fn json_recorder_writes_label_file() {
     recorder.record(&record).expect("record");
 
     let labels_dir = run_dir.join("labels");
-    let files: Vec<_> = fs::read_dir(labels_dir)
-        .unwrap()
-        .into_iter()
-        .flatten()
-        .collect();
+    let files: Vec<_> = fs::read_dir(labels_dir).unwrap().flatten().collect();
     assert_eq!(files.len(), 1);
-    let contents = fs::read_to_string(&files[0].path()).unwrap();
+    let contents = fs::read_to_string(files[0].path()).unwrap();
     assert!(contents.contains("\"frame_id\": 1"));
 }

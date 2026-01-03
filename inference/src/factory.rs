@@ -79,7 +79,7 @@ impl Detector for BurnTinyDetDetector {
             input, &device,
         ));
         let scores = logits.into_data().to_vec::<f32>().unwrap_or_default();
-        let confidence = scores.get(0).copied().unwrap_or(0.0);
+        let confidence = scores.first().copied().unwrap_or(0.0);
         DetectionResult {
             frame_id: frame.id,
             positive: confidence >= self.obj_thresh,

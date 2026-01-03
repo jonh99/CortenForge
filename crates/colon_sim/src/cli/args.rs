@@ -9,7 +9,7 @@ use clap::{Parser, ValueEnum};
     author,
     version,
     about,
-    long_about = "Deep Poo simulator / data generator — licensed under AGPL-3.0. Source: https://github.com/via-balaena/Deep_Poo"
+    long_about = "Deep Poo simulator / data generator — licensed under Apache-2.0. Source: https://github.com/via-balaena/Deep_Poo"
 )]
 pub struct AppArgs {
     /// Run mode: interactive sim or headless data generation.

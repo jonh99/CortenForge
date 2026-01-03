@@ -20,3 +20,6 @@ Use `SimRuntimePlugin` to keep registration in one place; avoid detector wiring 
 
 Layout note
 - Root crate is orchestration/CLI only (`src/cli/*`, `run_app`); domain systems live in app crates (e.g., `apps/colon_sim`).
+
+## License
+Apache-2.0 (see `LICENSE` in the repo root).

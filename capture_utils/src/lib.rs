@@ -43,9 +43,8 @@ impl Recorder for JsonRecorder {
             polyp_seed: record.polyp_seed,
             polyp_labels: record.labels.iter().map(label_to_polyp).collect(),
         };
-        meta.validate().map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::Other, format!("validation failed: {e}"))
-        })?;
+        meta.validate()
+            .map_err(|e| std::io::Error::other(format!("validation failed: {e}")))?;
         let out = labels_dir.join(format!("frame_{:05}.json", record.frame.id));
         let mut writer = BufWriter::new(fs::File::create(out)?);
         serde_json::to_writer_pretty(&mut writer, &meta)?;
@@ -113,7 +112,7 @@ pub fn generate_overlays(run_dir: &Path) -> anyhow::Result<()> {
 pub fn prune_run(input_run: &Path, output_root: &Path) -> std::io::Result<(usize, usize)> {
     let run_name = input_run
         .file_name()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "invalid run dir"))?;
+        .ok_or_else(|| std::io::Error::other("invalid run dir"))?;
     let out_run = output_root.join(run_name);
     fs::create_dir_all(out_run.join("labels"))?;
     fs::create_dir_all(out_run.join("images"))?;

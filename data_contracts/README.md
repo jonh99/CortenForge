@@ -1,14 +1,10 @@
 # data_contracts
 
-Shared schemas for runs, manifests, and capture metadata.
+Data contracts for run manifests and capture metadata shared across the CortenForge stack. Provides serde-friendly structs plus validation helpers for manifests and per-frame capture labels.
 
-Contents
-- `manifest`: `RunManifest` + schema version.
-- `capture`: `CaptureMetadata`, `PolypLabel`, validation helpers.
+## Features
+- No default features; serde-based types only.
+- Validates manifest timestamps/frame counts and capture label bounding boxes.
 
-Usage
-- Add `data_contracts` as a dependency and import the structs you need.
-- Call `validate()` on manifests/metadata before writing or ingesting.
-
-Tests
-- See `tests/capture_validation.rs` for bbox validation examples.
+## License
+Apache-2.0 (see `LICENSE` in the repo root).

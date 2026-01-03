@@ -1,0 +1,21 @@
+[package]
+name = "cli_support"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Shared CLI argument helpers for CortenForge tools and apps (capture, warehouse, seeds, thresholds)."
+repository = "https://github.com/via-balaena/Deep_Poo"
+homepage = "https://github.com/via-balaena/Deep_Poo"
+documentation = "https://docs.rs/cli_support"
+readme = "README.md"
+keywords = ["cli", "args", "capture", "warehouse"]
+categories = ["command-line-interface"]
+rust-version = "1.75"
+
+[features]
+default = []
+bevy-resource = ["bevy"]
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+bevy = { version = "0.17.3", optional = true, default-features = false }

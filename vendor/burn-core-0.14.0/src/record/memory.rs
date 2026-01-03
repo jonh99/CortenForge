@@ -36,6 +36,7 @@ impl<S: PrecisionSettings, B: Backend> Recorder<B> for BinBytesRecorder<S> {
         Ok(bincode::serde::encode_to_vec(item, bin_config()).unwrap())
     }
     fn load_item<I: DeserializeOwned>(&self, args: Self::LoadArgs) -> Result<I, RecorderError> {
+        // Note: burn 0.14 targets bincode 2.0.0-rc.3 serde helpers; newer bincode (2.0.1) drops symbols like decode_borrowed_from_slice.
         let (state, _) = bincode::serde::decode_from_slice(&args, bin_config())
             .map_err(|e| RecorderError::Unknown(e.to_string()))?;
         Ok(state)

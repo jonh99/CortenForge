@@ -5,7 +5,7 @@ Modular simulation substrate for data capture, ETL, training, and inference. Cor
 - Core crates: `sim_core`, `vision_core` / `vision_runtime`, `data_contracts`, `capture_utils`, `models`, `training`, `inference`, `colon_sim_tools`.
 - Apps: `apps/colon_sim` (reference implementation, a.k.a. Deep Poo) and `apps/hello_substrate` (minimal demo). The root crate is orchestration/CLI glue only.
 - Docs: mdBook under `docs/user_book` (user workflows) and `docs/contributor_book` (architecture, extension points).
-- License: AGPL-3.0 by default; see `LICENSE` and `COMMERCIAL_LICENSE.md` for terms.
+- License: Apache-2.0 by default; see `LICENSE` and `COMMERCIAL_LICENSE.md` for terms.
 
 ## Commercial opportunities
 - Via Balaena™ is offering a 50% profit split on commercial deals you source and help close. Reach out if you have leads or want to collaborate on deployments.

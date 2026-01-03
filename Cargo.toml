@@ -1,6 +1,10 @@
 [workspace]
 members = [
-    ".",
+    "crates/colon_sim",
+    "crates/cli_support",
+    "crates/cortenforge",
+    "crates/burn_dataset",
+    "crates/hello_substrate",
     "tools",
     "capture_utils",
     "sim_core",
@@ -11,77 +15,8 @@ members = [
     "inference",
     "models",
     "apps/colon_sim",
-    "apps/hello_substrate",
 ]
 resolver = "2"
-
-[package]
-name = "colon_sim"
-version = "0.1.0"
-edition = "2024"
-license = "AGPL-3.0-only"
-
-[features]
-burn_runtime = ["burn", "burn/ndarray", "burn/autodiff", "burn-ndarray"]
-burn_wgpu = ["burn", "burn/autodiff", "burn-wgpu"]
-burn_runtime_wgpu = ["burn_runtime", "burn_wgpu"]
-tui = ["ratatui", "crossterm", "sysinfo"]
-scheduler = ["sysinfo"]
-gpu_macos_helper = []
-gpu_nvidia = ["nvml-wrapper"]
-gpu_amd = []
-gpu_intel = []
-
-[[bin]]
-name = "sim_view"
-path = "apps/colon_sim/bin/sim_view.rs"
-
-[[bin]]
-name = "inference_view"
-path = "apps/colon_sim/bin/inference_view.rs"
-
-[dependencies]
-sim_core = { path = "sim_core" }
-data_contracts = { path = "data_contracts" }
-vision_core = { path = "vision_core" }
-vision_runtime = { path = "vision_runtime" }
-inference = { path = "inference" }
-capture_utils = { path = "capture_utils" }
-colon_sim_app = { path = "apps/colon_sim" }
-bevy = "0.17.3"
-bevy_rapier3d = { version = "0.32", features = [ "simd-stable", "debug-render-3d" ] }
-smallvec = "1.13"
-bevy_mesh = "0.17.3"
-futures-lite = "2.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-image = { version = "0.24", default-features = false, features = ["png", "rayon"] }
-rand = "0.8"
-clap = { version = "4.5", features = ["derive", "env"] }
-burn = { version = "0.14", optional = true }
-anyhow = "1.0"
-burn-ndarray = { version = "0.14", optional = true }
-burn-wgpu = { version = "0.14", optional = true, default-features = true }
-ratatui = { version = "0.26", optional = true, default-features = false, features = ["crossterm"] }
-crossterm = { version = "0.27", optional = true }
-sysinfo = { version = "0.30", optional = true, default-features = true, features = ["multithread"] }
-thiserror = "1.0"
-nvml-wrapper = { version = "0.8", optional = true }
-rayon = "1.8"
-sha2 = "0.10"
-arrow-array = "46"
-arrow-schema = "46"
-arrow-select = "46"
-parquet = { version = "46", features = ["arrow"] }
-memmap2 = "0.9"
-crossbeam-channel = "0.5"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-metal = "0.29"
-
-[dev-dependencies]
-tempfile = "3.10"
-models = { path = "models" }
 
 [patch.crates-io]
 burn-core = { path = "vendor/burn-core-0.14.0" }

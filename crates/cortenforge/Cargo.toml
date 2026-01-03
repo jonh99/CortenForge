@@ -1,0 +1,44 @@
+[package]
+name = "cortenforge"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Umbrella crate for the CortenForge stack; re-exports app-agnostic crates with feature wiring."
+repository = "https://github.com/via-balaena/Deep_Poo"
+homepage = "https://github.com/via-balaena/Deep_Poo"
+documentation = "https://docs.rs/cortenforge"
+readme = "README.md"
+keywords = ["vision", "simulation", "training", "inference", "bevy"]
+categories = ["science", "computer-vision", "game-engines"]
+rust-version = "1.85"
+
+[features]
+default = ["sim-core", "vision-core"]
+sim-core = ["sim_core"]
+vision-core = ["vision_core"]
+vision-runtime = ["vision_core", "vision_runtime"]
+capture-utils = ["dep:capture_utils", "vision-core", "data-contracts"]
+data-contracts = ["dep:data_contracts"]
+models = ["dep:models"]
+inference = ["vision-core", "sim-core", "dep:models", "dep:inference"]
+training = ["sim-core", "vision-core", "dep:models", "dep:training"]
+burn-runtime = ["inference", "training", "burn", "burn-ndarray", "bincode"]
+burn-wgpu = ["burn-runtime", "dep:burn-wgpu"]
+burn-dataset = ["burn_dataset"]
+cli-support = ["cli_support"]
+
+[dependencies]
+sim_core = { path = "../../sim_core", optional = true, version = "0.1.0" }
+vision_core = { path = "../../vision_core", optional = true, version = "0.1.0" }
+vision_runtime = { path = "../../vision_runtime", optional = true, version = "0.1.0" }
+capture_utils = { path = "../../capture_utils", optional = true, version = "0.1.0" }
+data_contracts = { path = "../../data_contracts", optional = true, version = "0.1.0" }
+models = { path = "../../models", optional = true, version = "0.1.0" }
+inference = { path = "../../inference", optional = true, version = "0.1.0" }
+training = { path = "../../training", optional = true, version = "0.1.0" }
+burn_dataset = { path = "../burn_dataset", optional = true, version = "0.1.0" }
+cli_support = { path = "../cli_support", optional = true, version = "0.1.0" }
+burn = { version = "0.14", optional = true, default-features = false, features = ["autodiff", "std"] }
+burn-ndarray = { version = "0.14", optional = true, default-features = false }
+burn-wgpu = { version = "0.14", optional = true, default-features = true }
+bincode = { version = "2.0.0-rc.3", optional = true, default-features = false, features = ["alloc", "serde"] }

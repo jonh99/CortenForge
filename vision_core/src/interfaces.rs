@@ -21,7 +21,7 @@ pub struct DetectionResult {
     pub frame_id: u64,
     pub positive: bool,
     pub confidence: f32,
-    /// Normalized boxes [x0,y0,x1,y1] in 0..1.
+    /// Normalized boxes \[x0,y0,x1,y1\] in 0..1.
     pub boxes: Vec<[f32; 4]>,
     /// Per-box scores aligned with `boxes`.
     pub scores: Vec<f32>,

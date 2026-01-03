@@ -5,6 +5,7 @@
   - [Architecture](architecture.md)
 - [Core crates](core_crates.md)
 - [Hooks / extension points](hooks.md)
+- [Publishing crates](publishing.md)
 - [Apps](apps_index.md)
   - [App patterns](apps.md)
 - [Tools crate](tools.md)

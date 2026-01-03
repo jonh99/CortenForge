@@ -1,9 +1,9 @@
 #[cfg(feature = "burn_runtime")]
-use crossbeam_channel::{Receiver, bounded};
+use crossbeam_channel::{bounded, Receiver};
 use image::imageops::FilterType;
 #[cfg(feature = "burn_runtime")]
 use memmap2::MmapOptions;
-use rand::{Rng, SeedableRng, seq::SliceRandom};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 #[cfg(feature = "burn_runtime")]
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};

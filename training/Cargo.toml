@@ -1,7 +1,7 @@
 [features]
 default = ["backend-ndarray", "tinydet"]
-backend-ndarray = ["burn-ndarray"]
-backend-wgpu = ["burn-wgpu"]
+backend-ndarray = ["burn-ndarray", "burn/ndarray"]
+backend-wgpu = ["burn-wgpu", "burn/wgpu"]
 tinydet = ["models/tinydet"]
 bigdet = ["models/bigdet"]
 
@@ -9,7 +9,16 @@ bigdet = ["models/bigdet"]
 name = "training"
 version = "0.1.0"
 edition = "2021"
-publish = false
+license = "Apache-2.0"
+publish = true
+description = "Burn-based training and eval for TinyDet/BigDet models in the CortenForge stack."
+repository = "https://github.com/via-balaena/Deep_Poo"
+homepage = "https://github.com/via-balaena/Deep_Poo"
+documentation = "https://docs.rs/training"
+readme = "README.md"
+keywords = ["burn", "training", "computer-vision", "detection"]
+categories = ["science", "computer-vision"]
+rust-version = "1.75"
 
 [lib]
 name = "training"
@@ -25,14 +34,15 @@ path = "src/bin/eval.rs"
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
-data_contracts = { path = "../data_contracts" }
+data_contracts = { path = "../data_contracts", version = "0.1.0" }
 burn = { version = "0.14", default-features = false, features = ["autodiff", "std"] }
 burn-ndarray = { version = "0.14", default-features = false, optional = true }
 burn-wgpu = { version = "0.14", optional = true, default-features = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 image = { version = "0.24", default-features = false, features = ["png"] }
-models = { path = "../models" }
+models = { path = "../models", version = "0.1.0" }
+bincode = { version = "2.0.0-rc.3", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
 tempfile = "3.10"
