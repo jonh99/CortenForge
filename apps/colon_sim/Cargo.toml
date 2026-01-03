@@ -9,10 +9,10 @@ publish = false
 bevy = "0.17.3"
 bevy_mesh = "0.17.3"
 bevy_rapier3d = { version = "0.32", features = ["simd-stable", "debug-render-3d"] }
-sim_core = { path = "../../sim_core" }
-vision_core = { path = "../../vision_core" }
-vision_runtime = { path = "../../vision_runtime" }
-data_contracts = { path = "../../data_contracts" }
+sim_core = { package = "cortenforge-sim-core", path = "../../sim_core" }
+vision_core = { package = "cortenforge-vision-core", path = "../../vision_core" }
+vision_runtime = { package = "cortenforge-vision-runtime", path = "../../vision_runtime" }
+data_contracts = { package = "cortenforge-data-contracts", path = "../../data_contracts" }
 models = { package = "cortenforge-models", path = "../../models", version = "0.1.0" }
 anyhow = "1.0"
 rand = "0.8"

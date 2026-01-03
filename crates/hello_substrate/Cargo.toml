@@ -13,5 +13,5 @@ name = "hello_substrate"
 path = "src/main.rs"
 
 [dependencies]
-sim_core = { path = "../../sim_core" }
+sim_core = { package = "cortenforge-sim-core", path = "../../sim_core" }
 bevy = "0.17.3"

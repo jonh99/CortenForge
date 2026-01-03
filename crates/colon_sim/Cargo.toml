@@ -25,14 +25,14 @@ name = "inference_view"
 path = "../../apps/colon_sim/bin/inference_view.rs"
 
 [dependencies]
-sim_core = { path = "../../sim_core" }
-data_contracts = { path = "../../data_contracts" }
-vision_core = { path = "../../vision_core" }
-vision_runtime = { path = "../../vision_runtime" }
-inference = { path = "../../inference" }
-capture_utils = { path = "../../capture_utils" }
+sim_core = { package = "cortenforge-sim-core", path = "../../sim_core" }
+data_contracts = { package = "cortenforge-data-contracts", path = "../../data_contracts" }
+vision_core = { package = "cortenforge-vision-core", path = "../../vision_core" }
+vision_runtime = { package = "cortenforge-vision-runtime", path = "../../vision_runtime" }
+inference = { package = "cortenforge-inference", path = "../../inference" }
+capture_utils = { package = "cortenforge-capture-utils", path = "../../capture_utils" }
 colon_sim_app = { path = "../../apps/colon_sim" }
-burn_dataset = { path = "../burn_dataset", version = "0.1.0", default-features = false, features = ["sha2"] }
+burn_dataset = { package = "cortenforge-burn-dataset", path = "../burn_dataset", version = "0.1.0", default-features = false, features = ["sha2"] }
 bevy = "0.17.3"
 bevy_rapier3d = { version = "0.32", features = ["simd-stable", "debug-render-3d"] }
 smallvec = "1.13"

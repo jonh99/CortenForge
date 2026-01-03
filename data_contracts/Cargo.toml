@@ -1,5 +1,5 @@
 [package]
-name = "data_contracts"
+name = "cortenforge-data-contracts"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -7,7 +7,7 @@ publish = true
 description = "Data contracts for run manifests and capture metadata used across the CortenForge stack."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/data_contracts"
+documentation = "https://docs.rs/cortenforge-data-contracts"
 readme = "README.md"
 keywords = ["data", "contracts", "serde", "manifest"]
 categories = ["data-structures"]

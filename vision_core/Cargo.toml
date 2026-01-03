@@ -1,5 +1,5 @@
 [package]
-name = "vision_core"
+name = "cortenforge-vision-core"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -7,7 +7,7 @@ publish = true
 description = "Core vision interfaces and capture/overlay helpers for the CortenForge stack."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/vision_core"
+documentation = "https://docs.rs/cortenforge-vision-core"
 readme = "README.md"
 keywords = ["vision", "graphics", "capture", "overlay", "serde"]
 categories = ["graphics", "computer-vision", "game-engines"]

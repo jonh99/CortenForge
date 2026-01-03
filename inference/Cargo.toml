@@ -1,5 +1,5 @@
 [package]
-name = "inference"
+name = "cortenforge-inference"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -7,7 +7,7 @@ publish = true
 description = "Detector factory and inference helpers (Burn-backed or heuristic) for the CortenForge stack."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/inference"
+documentation = "https://docs.rs/cortenforge-inference"
 readme = "README.md"
 keywords = ["inference", "burn", "detector", "bevy"]
 categories = ["science", "computer-vision", "game-engines"]
@@ -26,8 +26,8 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1.0"
-vision_core = { version = "0.1.0" }
-sim_core = { version = "0.1.0" }
+vision_core = { package = "cortenforge-vision-core", version = "0.1.0" }
+sim_core = { package = "cortenforge-sim-core", version = "0.1.0" }
 bevy = "0.17.3"
 burn = { version = "0.14", default-features = false, features = ["autodiff"] }
 burn-ndarray = { version = "0.14", default-features = false, optional = true }

@@ -1,5 +1,5 @@
 [package]
-name = "sim_core"
+name = "cortenforge-sim-core"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -7,7 +7,7 @@ publish = true
 description = "Bevy-based simulation runtime primitives (modes, config, plugins) for the CortenForge stack."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/sim_core"
+documentation = "https://docs.rs/cortenforge-sim-core"
 readme = "README.md"
 keywords = ["bevy", "simulation", "runtime"]
 categories = ["game-engines", "simulation", "graphics"]
@@ -16,4 +16,4 @@ rust-version = "1.75"
 [dependencies]
 bevy = "0.17.3"
 bevy_rapier3d = { version = "0.32", features = ["simd-stable", "debug-render-3d"] }
-vision_core = { version = "0.1.0" }
+vision_core = { package = "cortenforge-vision-core", version = "0.1.0" }

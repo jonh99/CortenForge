@@ -6,7 +6,7 @@ tinydet = ["models/tinydet"]
 bigdet = ["models/bigdet"]
 
 [package]
-name = "training"
+name = "cortenforge-training"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -14,7 +14,7 @@ publish = true
 description = "Burn-based training and eval for TinyDet/BigDet models in the CortenForge stack."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/training"
+documentation = "https://docs.rs/cortenforge-training"
 readme = "README.md"
 keywords = ["burn", "training", "computer-vision", "detection"]
 categories = ["science", "computer-vision"]
@@ -34,7 +34,7 @@ path = "src/bin/eval.rs"
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
-data_contracts = { version = "0.1.0" }
+data_contracts = { package = "cortenforge-data-contracts", version = "0.1.0" }
 burn = { version = "0.14", default-features = false, features = ["autodiff", "std"] }
 burn-ndarray = { version = "0.14", default-features = false, optional = true }
 burn-wgpu = { version = "0.14", optional = true, default-features = true }

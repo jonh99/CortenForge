@@ -1,12 +1,12 @@
 [package]
-name = "burn_dataset"
+name = "cortenforge-burn-dataset"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "Dataset loading, splitting, and Burn-compatible batching utilities for CortenForge."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/burn_dataset"
+documentation = "https://docs.rs/cortenforge-burn-dataset"
 readme = "README.md"
 keywords = ["dataset", "burn", "vision"]
 categories = ["science", "computer-vision"]
@@ -23,7 +23,7 @@ serde_json = "1.0"
 rand = "0.8"
 thiserror = "1.0"
 image = { version = "0.24", default-features = false, features = ["png", "rayon"] }
-data_contracts = { path = "../../data_contracts", version = "0.1.0" }
+data_contracts = { package = "cortenforge-data-contracts", path = "../../data_contracts", version = "0.1.0" }
 burn = { version = "0.14", default-features = false, optional = true, features = ["autodiff", "std"] }
 burn-ndarray = { version = "0.14", default-features = false, optional = true }
 crossbeam-channel = { version = "0.5", optional = true }

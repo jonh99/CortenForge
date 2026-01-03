@@ -1,12 +1,12 @@
 [package]
-name = "cli_support"
+name = "cortenforge-cli-support"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "Shared CLI argument helpers for CortenForge tools and apps (capture, warehouse, seeds, thresholds)."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/cli_support"
+documentation = "https://docs.rs/cortenforge-cli-support"
 readme = "README.md"
 keywords = ["cli", "args", "capture", "warehouse"]
 categories = ["command-line-interface"]

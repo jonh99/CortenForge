@@ -1,5 +1,5 @@
 [package]
-name = "capture_utils"
+name = "cortenforge-capture-utils"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -7,15 +7,15 @@ publish = true
 description = "Capture helpers and recorder sinks (JSON, overlays, pruning) for the CortenForge stack."
 repository = "https://github.com/via-balaena/Deep_Poo"
 homepage = "https://github.com/via-balaena/Deep_Poo"
-documentation = "https://docs.rs/capture_utils"
+documentation = "https://docs.rs/cortenforge-capture-utils"
 readme = "README.md"
 keywords = ["capture", "recorder", "serde", "image"]
 categories = ["data-structures", "graphics", "computer-vision"]
 rust-version = "1.75"
 
 [dependencies]
-vision_core = { version = "0.1.0" }
-data_contracts = { version = "0.1.0" }
+vision_core = { package = "cortenforge-vision-core", version = "0.1.0" }
+data_contracts = { package = "cortenforge-data-contracts", version = "0.1.0" }
 image = { version = "0.24", default-features = false, features = ["png", "rayon"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

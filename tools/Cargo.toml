@@ -17,12 +17,12 @@ name = "colon_sim_tools"
 path = "src/lib.rs"
 
 [dependencies]
-cli_support = { path = "../crates/cli_support" }
-burn_dataset = { path = "../crates/burn_dataset", version = "0.1.0", default-features = false, features = ["sha2"] }
-vision_core = { path = "../vision_core" }
-data_contracts = { path = "../data_contracts" }
-inference = { path = "../inference" }
-capture_utils = { path = "../capture_utils" }
+cli_support = { package = "cortenforge-cli-support", path = "../crates/cli_support" }
+burn_dataset = { package = "cortenforge-burn-dataset", path = "../crates/burn_dataset", version = "0.1.0", default-features = false, features = ["sha2"] }
+vision_core = { package = "cortenforge-vision-core", path = "../vision_core" }
+data_contracts = { package = "cortenforge-data-contracts", path = "../data_contracts" }
+inference = { package = "cortenforge-inference", path = "../inference" }
+capture_utils = { package = "cortenforge-capture-utils", path = "../capture_utils" }
 clap = { version = "4.5", features = ["derive"] }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
